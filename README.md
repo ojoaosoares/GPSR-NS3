@@ -43,7 +43,7 @@ Clone the GPSR repository inside the src/ directory:
 ```bash
 cd src
 git clone git@github.com:ojoaosoares/GPSR-NS3.git
-mv -r GPSR-NS3 gpsr
+mv GPSR-NS3 gpsr
 ```
 
 ## 3. Configure and Build
