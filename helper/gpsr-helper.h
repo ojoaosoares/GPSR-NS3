@@ -26,46 +26,46 @@
 #include "ns3/ipv4-routing-helper.h"
 
 namespace ns3 {
-/**
- * \ingroup gpsr
- * \brief Helper class that adds GPSR routing to nodes.
- */
-class GpsrHelper : public Ipv4RoutingHelper
-{
-public:
-  GpsrHelper ();
-
   /**
-   * \internal
-   * \returns pointer to clone of this OlsrHelper
-   *
-   * This method is mainly for internal use by the other helpers;
-   * clients are expected to free the dynamic memory allocated by this method
+   * \ingroup gpsr
+   * \brief Helper class that adds GPSR routing to nodes.
    */
-  GpsrHelper* Copy (void) const;
+  class GpsrHelper : public Ipv4RoutingHelper
+  {
+    public:
+      GpsrHelper ();
 
-  /**
-   * \param node the node on which the routing protocol will run
-   * \returns a newly-created routing protocol
-   *
-   * This method will be called by ns3::InternetStackHelper::Install
-   *
-   * TODO: support installing GPSR on the subset of all available IP interfaces
-   */
-  virtual Ptr<Ipv4RoutingProtocol> Create (Ptr<Node> node) const;
-  /**
-   * \param name the name of the attribute to set
-   * \param value the value of the attribute to set.
-   *
-   * This method controls the attributes of ns3::gpsr::RoutingProtocol
-   */
-  void Set (std::string name, const AttributeValue &value);
+      /**
+       * \internal
+       * \returns pointer to clone of this OlsrHelper
+       *
+       * This method is mainly for internal use by the other helpers;
+       * clients are expected to free the dynamic memory allocated by this method
+       */
+      GpsrHelper* Copy (void) const;
 
-  void Install (void) const;
+      /**
+       * \param node the node on which the routing protocol will run
+       * \returns a newly-created routing protocol
+       *
+       * This method will be called by ns3::InternetStackHelper::Install
+       *
+       * TODO: support installing GPSR on the subset of all available IP interfaces
+       */
+      virtual Ptr<Ipv4RoutingProtocol> Create (Ptr<Node> node) const;
+      /**
+       * \param name the name of the attribute to set
+       * \param value the value of the attribute to set.
+       *
+       * This method controls the attributes of ns3::gpsr::RoutingProtocol
+       */
+      void Set (std::string name, const AttributeValue &value);
 
-private:
-  ObjectFactory m_agentFactory;
-};
+      void Install (void) const;
 
+    private:
+      ObjectFactory m_agentFactory;
+  };
 }
+
 #endif /* GPSRHELPER_H_ */
