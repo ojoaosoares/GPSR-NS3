@@ -114,18 +114,16 @@ namespace ns3 {
             if (m_entryLifeTime + GetEntryUpdateTime(i->first) <= Simulator::Now())
             {
                 toErase.insert(toErase.begin(), i->first);
-
             }
         }
+
         toErase.unique();
 
         std::list<Ipv4Address>::iterator end = toErase.end();
 
         for (std::list<Ipv4Address>::iterator it = toErase.begin(); it != end; ++it)
         {
-
             m_table.erase(*it);
-
         }
     }
 
@@ -145,27 +143,27 @@ namespace ns3 {
      * \return Ipv4Address of the next hop, Ipv4Address::GetZero() if no nighbour was found in greedy mode
      */
     Ipv4Address 
-    PositionTable::BestNeighbor(Vector position, Vector nodePos)
+    PositionTable::BestNeighbor(Vector destPos, Vector nodePos)
     {
         Purge();
 
-        double initialDistance = CalculateDistance(nodePos, position);
+        double initialDistance = CalculateDistance(nodePos, destPos);
 
         if (m_table.empty())
         {
-            NS_LOG_DEBUG("BestNeighbor table is empty; Position: " << position);
+            NS_LOG_DEBUG("BestNeighbor table is empty; Position: " << destPos);
             return Ipv4Address::GetZero();
         }     //if table is empty(no neighbours)
 
         Ipv4Address bestFoundID = m_table.begin()->first;
-        double bestFoundDistance = CalculateDistance(m_table.begin()->second.first, position);
+        double bestFoundDistance = CalculateDistance(m_table.begin()->second.first, destPos);
         std::map<Ipv4Address, std::pair<Vector, Time> >::iterator i;
         for (i = m_table.begin(); !(i == m_table.end()); i++)
         {
-            if (bestFoundDistance > CalculateDistance(i->second.first, position))
+            if (bestFoundDistance > CalculateDistance(i->second.first, destPos))
             {
                 bestFoundID = i->first;
-                bestFoundDistance = CalculateDistance(i->second.first, position);
+                bestFoundDistance = CalculateDistance(i->second.first, destPos);
             }
         }
 
