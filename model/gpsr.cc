@@ -498,11 +498,11 @@ namespace ns3 {
         InetSocketAddress inetSourceAddr = InetSocketAddress::ConvertFrom(sourceAddress);
         Ipv4Address sender = inetSourceAddr.GetIpv4();
 
-        UpdateRouteToNeighbor(sender, receiver, Position);
+        UpdateRouteToNeighbor(sender, Position);
     }
 
     void
-    RoutingProtocol::UpdateRouteToNeighbor(Ipv4Address sender, Ipv4Address receiver, Vector Pos)
+    RoutingProtocol::UpdateRouteToNeighbor(Ipv4Address sender, Vector Pos)
     {
         m_neighbors.AddEntry(sender, Pos);
     }
