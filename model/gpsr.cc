@@ -24,8 +24,11 @@
 #define GPSR_LS_RLS 1
 
 namespace ns3 {
+
   NS_LOG_COMPONENT_DEFINE("GpsrRoutingProtocol");
+
   namespace gpsr {
+
     struct DeferredRouteOutputTag : public Tag
     {
       /// Positive if output device is fixed in RouteOutput
@@ -89,7 +92,6 @@ namespace ns3 {
         HelloIntervalTimer(Timer::CANCEL_ON_DESTROY),
         PerimeterMode(false)
     {
-
       m_neighbors = PositionTable();
     }
 
@@ -111,8 +113,7 @@ namespace ns3 {
         .AddAttribute("PerimeterMode", "Indicates if PerimeterMode is enabled",
                       BooleanValue(false),
                       MakeBooleanAccessor(&RoutingProtocol::PerimeterMode),
-                      MakeBooleanChecker())
-      ;
+                      MakeBooleanChecker());
       return tid;
     }
 
@@ -158,6 +159,7 @@ namespace ns3 {
         // Check if input device supports IP
         NS_ASSERT(m_ipv4->GetInterfaceForDevice(idev) >= 0);
         int32_t iif = m_ipv4->GetInterfaceForDevice(idev);
+
         Ipv4Address dst = header.GetDestination();
         Ipv4Address origin = header.GetSource();
 
@@ -193,11 +195,6 @@ namespace ns3 {
                 NS_LOG_LOGIC("Unicast local delivery to " << dst);
             }
 
-            else
-            {
-      //          NS_LOG_LOGIC("Broadcast local delivery to " << dst);
-            }
-
             lcb(packet, header, iif);
             return true;
         }
@@ -222,14 +219,12 @@ namespace ns3 {
         QueueEntry newEntry(p, header, ucb, ecb);
         bool result = m_queue.Enqueue(newEntry);
 
-
         m_queuedAddresses.insert(m_queuedAddresses.begin(), header.GetDestination());
         m_queuedAddresses.unique();
 
         if (result)
         {
             NS_LOG_LOGIC("Add packet " << p->GetUid() << " to queue. Protocol " <<(uint16_t) header.GetProtocol());
-
         }
     }
 
@@ -268,7 +263,6 @@ namespace ns3 {
         bool recovery = false;
         QueueEntry queueEntry;
 
-
         if (m_locationService->IsInSearch(dst))
         {
             return false;
@@ -305,7 +299,6 @@ namespace ns3 {
 
           if (recovery)
           {
-              
               Vector Position;
               Vector previousHop;
               uint32_t updated;
@@ -333,6 +326,7 @@ namespace ns3 {
                       updated = hdr.GetUpdated(); 
                   }
                   
+                  // Here last positions is set to be the destination position because of the working of the right hand rule
                   PositionHeader posHeader(Position.x, Position.y,  updated, myPos.x, myPos.y,(uint8_t) 1, Position.x, Position.y); 
                   p->AddHeader(posHeader); //enters in recovery with last edge from Dst
                   p->AddHeader(tHeader);
@@ -353,7 +347,6 @@ namespace ns3 {
 
         while(m_queue.Dequeue(dst, queueEntry))
         {
-            DeferredRouteOutputTag tag;
             Ptr<Packet> p = ConstCast<Packet>(queueEntry.GetPacket());
 
             UnicastForwardCallback ucb = queueEntry.GetUnicastForwardCallback();
@@ -464,7 +457,6 @@ namespace ns3 {
         socket->SetAttribute("IpTtl", UintegerValue(1));
         m_socketAddresses.insert(std::make_pair(socket, iface));
 
-
         // Allow neighbor manager use this interface for layer 2 feedback if possible
         Ptr<NetDevice> dev = m_ipv4->GetNetDevice(m_ipv4->GetInterfaceForAddress(iface.GetLocal()));
         Ptr<WifiNetDevice> wifi = dev->GetObject<WifiNetDevice>();
@@ -505,13 +497,12 @@ namespace ns3 {
         Position.y = hdr.GetOriginPosy();
         InetSocketAddress inetSourceAddr = InetSocketAddress::ConvertFrom(sourceAddress);
         Ipv4Address sender = inetSourceAddr.GetIpv4();
-        Ipv4Address receiver = m_socketAddresses[socket].GetLocal();
 
-        UpdateRouteToNeighbor(sender, receiver, Position);
+        UpdateRouteToNeighbor(sender, Position);
     }
 
     void
-    RoutingProtocol::UpdateRouteToNeighbor(Ipv4Address sender, Ipv4Address receiver, Vector Pos)
+    RoutingProtocol::UpdateRouteToNeighbor(Ipv4Address sender, Vector Pos)
     {
         m_neighbors.AddEntry(sender, Pos);
     }
@@ -588,15 +579,15 @@ namespace ns3 {
                     return;
                 }
                 // Create a socket to listen only on this interface
-                Ptr<Socket> socket = Socket::CreateSocket(GetObject<Node>(),
+                Ptr<Socket> new_socket = Socket::CreateSocket(GetObject<Node>(),
                                                           UdpSocketFactory::GetTypeId());
-                NS_ASSERT(socket != 0);
-                socket->SetRecvCallback(MakeCallback(&RoutingProtocol::RecvGPSR,this));
-                socket->BindToNetDevice(l3->GetNetDevice(interface));
+                NS_ASSERT(new_socket != 0);
+                new_socket->SetRecvCallback(MakeCallback(&RoutingProtocol::RecvGPSR,this));
+                new_socket->BindToNetDevice(l3->GetNetDevice(interface));
                 // Bind to any IP address so that broadcasts can be received
-                socket->Bind(InetSocketAddress(Ipv4Address::GetAny(), GPSR_PORT));
-                socket->SetAllowBroadcast(true);
-                m_socketAddresses.insert(std::make_pair(socket, iface));
+                new_socket->Bind(InetSocketAddress(Ipv4Address::GetAny(), GPSR_PORT));
+                new_socket->SetAllowBroadcast(true);
+                m_socketAddresses.insert(std::make_pair(new_socket, iface));
 
                 Ptr<NetDevice> dev = m_ipv4->GetNetDevice(m_ipv4->GetInterfaceForAddress(iface.GetLocal()));
             }
@@ -622,14 +613,14 @@ namespace ns3 {
             {
                 Ipv4InterfaceAddress iface = l3->GetAddress(i, 0);
                 // Create a socket to listen only on this interface
-                Ptr<Socket> socket = Socket::CreateSocket(GetObject<Node>(),
+                Ptr<Socket> new_socket = Socket::CreateSocket(GetObject<Node>(),
                                                           UdpSocketFactory::GetTypeId());
-                NS_ASSERT(socket != 0);
-                socket->SetRecvCallback(MakeCallback(&RoutingProtocol::RecvGPSR, this));
+                NS_ASSERT(new_socket != 0);
+                new_socket->SetRecvCallback(MakeCallback(&RoutingProtocol::RecvGPSR, this));
                 // Bind to any IP address so that broadcasts can be received
-                socket->Bind(InetSocketAddress(Ipv4Address::GetAny(), GPSR_PORT));
-                socket->SetAllowBroadcast(true);
-                m_socketAddresses.insert(std::make_pair(socket, iface));
+                new_socket->Bind(InetSocketAddress(Ipv4Address::GetAny(), GPSR_PORT));
+                new_socket->SetAllowBroadcast(true);
+                m_socketAddresses.insert(std::make_pair(new_socket, iface));
 
                 // Add local broadcast record to the routing table
                 Ptr<NetDevice> dev = m_ipv4->GetNetDevice(m_ipv4->GetInterfaceForAddress(iface.GetLocal()));
@@ -744,9 +735,6 @@ namespace ns3 {
         return false;
     }
 
-
-
-
     void
     RoutingProtocol::Start()
     {
@@ -804,7 +792,6 @@ namespace ns3 {
         return rt;
     }
 
-
     int
     RoutingProtocol::GetProtocolNumber(void) const
     {
@@ -861,7 +848,6 @@ namespace ns3 {
         Ipv4Address dst = header.GetDestination();
         Ipv4Address origin = header.GetSource();
         
-
         m_neighbors.Purge();
         
         uint32_t updated = 0;
@@ -880,7 +866,6 @@ namespace ns3 {
 
         if (tHeader.Get() == GPSRTYPE_POS)
         {
-
             p->RemoveHeader(hdr);
             Position.x = hdr.GetDstPosx();
             Position.y = hdr.GetDstPosy();
@@ -920,46 +905,45 @@ namespace ns3 {
 
         Ipv4Address nextHop;
 
-      /*  if (m_neighbors.isNeighbour(dst))
-          {
+        if (m_neighbors.isNeighbour(dst))
+        {
             nextHop = dst;
-          }
+        }
+
         else
-          {
-      */
+        {
             nextHop = m_neighbors.BestNeighbor(Position, myPos);
-            if (nextHop != Ipv4Address::GetZero())
-            {
-                PositionHeader posHeader(Position.x, Position.y,  updated,(uint64_t) 0,(uint64_t) 0,(uint8_t) 0, myPos.x, myPos.y);
-                p->AddHeader(posHeader);
-                p->AddHeader(tHeader);
-                
-                
-                Ptr<NetDevice> oif = m_ipv4->GetObject<NetDevice>();
-                Ptr<Ipv4Route> route = Create<Ipv4Route>();
-                route->SetDestination(dst);
-                route->SetSource(header.GetSource());
-                route->SetGateway(nextHop);
-                
-                // FIXME: Does not work for multiple interfaces
-                route->SetOutputDevice(m_ipv4->GetNetDevice(1));
-                route->SetDestination(header.GetDestination());
-                NS_ASSERT(route != 0);
-                NS_LOG_DEBUG("Exist route to " << route->GetDestination() << " from interface " << route->GetOutputDevice());
-                
-                
-                NS_LOG_LOGIC(route->GetOutputDevice() << " forwarding to " << dst << " from " << origin << " through " << route->GetGateway() << " packet " << p->GetUid());
-                
-                ucb(route, p, header);
-                return true;
-            }
-      //    }
+        }
+
+        if (nextHop != Ipv4Address::GetZero())
+        {
+            PositionHeader posHeader(Position.x, Position.y,  updated,(uint64_t) 0,(uint64_t) 0,(uint8_t) 0, myPos.x, myPos.y);
+            p->AddHeader(posHeader);
+            p->AddHeader(tHeader);
+            
+            Ptr<NetDevice> oif = m_ipv4->GetObject<NetDevice>();
+            Ptr<Ipv4Route> route = Create<Ipv4Route>();
+            route->SetDestination(dst);
+            route->SetSource(header.GetSource());
+            route->SetGateway(nextHop);
+            
+            // FIXME: Does not work for multiple interfaces
+            route->SetOutputDevice(m_ipv4->GetNetDevice(1));
+            route->SetDestination(header.GetDestination());
+            NS_ASSERT(route != 0);
+            NS_LOG_DEBUG("Exist route to " << route->GetDestination() << " from interface " << route->GetOutputDevice());
+            
+            NS_LOG_LOGIC(route->GetOutputDevice() << " forwarding to " << dst << " from " << origin << " through " << route->GetGateway() << " packet " << p->GetUid());
+            
+            ucb(route, p, header);
+            return true;
+        }
+
         hdr.SetInRec(1);
         hdr.SetRecPosx(myPos.x);
         hdr.SetRecPosy(myPos.y); 
         hdr.SetLastPosx(Position.x); //when entering Recovery, the first edge is the Dst
         hdr.SetLastPosy(Position.y); 
-
 
         p->AddHeader(hdr);
         p->AddHeader(tHeader);
