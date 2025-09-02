@@ -224,28 +224,28 @@ namespace ns3 {
     void
     PositionHeader::Serialize(Buffer::Iterator i) const
     {
-        i.WriteU64(m_dstPosx);
-        i.WriteU64(m_dstPosy);
-        i.WriteU32(m_updated);
-        i.WriteU64(m_recPosx);
-        i.WriteU64(m_recPosy);
+        i.WriteHtonU64(m_dstPosx);
+        i.WriteHtonU64(m_dstPosy);
+        i.WriteHtonU32(m_updated);
+        i.WriteHtonU64(m_recPosx);
+        i.WriteHtonU64(m_recPosy);
         i.WriteU8(m_inRec);
-        i.WriteU64(m_lastPosx);
-        i.WriteU64(m_lastPosy);
+        i.WriteHtonU64(m_lastPosx);
+        i.WriteHtonU64(m_lastPosy);
     }
 
     uint32_t
     PositionHeader::Deserialize(Buffer::Iterator start)
     {
         Buffer::Iterator i = start;
-        m_dstPosx = i.ReadU64();
-        m_dstPosy = i.ReadU64();
-        m_updated = i.ReadU32();
-        m_recPosx = i.ReadU64();
-        m_recPosy = i.ReadU64();
+        m_dstPosx = i.ReadNtohU64();
+        m_dstPosy = i.ReadNtohU64();
+        m_updated = i.ReadNtohU32();
+        m_recPosx = i.ReadNtohU64();
+        m_recPosy = i.ReadNtohU64();
         m_inRec = i.ReadU8();
-        m_lastPosx = i.ReadU64();
-        m_lastPosy = i.ReadU64();
+        m_lastPosx = i.ReadNtohU64();
+        m_lastPosy = i.ReadNtohU64();
 
         uint32_t dist = i.GetDistanceFrom(start);
         NS_ASSERT(dist == GetSerializedSize());
