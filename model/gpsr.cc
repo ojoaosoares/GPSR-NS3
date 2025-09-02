@@ -587,7 +587,7 @@ namespace ns3 {
                 // Bind to any IP address so that broadcasts can be received
                 new_socket->Bind(InetSocketAddress(Ipv4Address::GetAny(), GPSR_PORT));
                 new_socket->SetAllowBroadcast(true);
-                m_socketAddresses.insert(std::make_pair(socket, iface));
+                m_socketAddresses.insert(std::make_pair(new_socket, iface));
 
                 Ptr<NetDevice> dev = m_ipv4->GetNetDevice(m_ipv4->GetInterfaceForAddress(iface.GetLocal()));
             }
