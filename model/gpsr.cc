@@ -579,14 +579,14 @@ namespace ns3 {
                     return;
                 }
                 // Create a socket to listen only on this interface
-                Ptr<Socket> socket = Socket::CreateSocket(GetObject<Node>(),
+                Ptr<Socket> new_socket = Socket::CreateSocket(GetObject<Node>(),
                                                           UdpSocketFactory::GetTypeId());
-                NS_ASSERT(socket != 0);
-                socket->SetRecvCallback(MakeCallback(&RoutingProtocol::RecvGPSR,this));
-                socket->BindToNetDevice(l3->GetNetDevice(interface));
+                NS_ASSERT(new_socket != 0);
+                new_socket->SetRecvCallback(MakeCallback(&RoutingProtocol::RecvGPSR,this));
+                new_socket->BindToNetDevice(l3->GetNetDevice(interface));
                 // Bind to any IP address so that broadcasts can be received
-                socket->Bind(InetSocketAddress(Ipv4Address::GetAny(), GPSR_PORT));
-                socket->SetAllowBroadcast(true);
+                new_socket->Bind(InetSocketAddress(Ipv4Address::GetAny(), GPSR_PORT));
+                new_socket->SetAllowBroadcast(true);
                 m_socketAddresses.insert(std::make_pair(socket, iface));
 
                 Ptr<NetDevice> dev = m_ipv4->GetNetDevice(m_ipv4->GetInterfaceForAddress(iface.GetLocal()));
@@ -613,14 +613,14 @@ namespace ns3 {
             {
                 Ipv4InterfaceAddress iface = l3->GetAddress(i, 0);
                 // Create a socket to listen only on this interface
-                Ptr<Socket> socket = Socket::CreateSocket(GetObject<Node>(),
+                Ptr<Socket> new_socket = Socket::CreateSocket(GetObject<Node>(),
                                                           UdpSocketFactory::GetTypeId());
-                NS_ASSERT(socket != 0);
-                socket->SetRecvCallback(MakeCallback(&RoutingProtocol::RecvGPSR, this));
+                NS_ASSERT(new_socket != 0);
+                new_socket->SetRecvCallback(MakeCallback(&RoutingProtocol::RecvGPSR, this));
                 // Bind to any IP address so that broadcasts can be received
-                socket->Bind(InetSocketAddress(Ipv4Address::GetAny(), GPSR_PORT));
-                socket->SetAllowBroadcast(true);
-                m_socketAddresses.insert(std::make_pair(socket, iface));
+                new_socket->Bind(InetSocketAddress(Ipv4Address::GetAny(), GPSR_PORT));
+                new_socket->SetAllowBroadcast(true);
+                m_socketAddresses.insert(std::make_pair(new_socket, iface));
 
                 // Add local broadcast record to the routing table
                 Ptr<NetDevice> dev = m_ipv4->GetNetDevice(m_ipv4->GetInterfaceForAddress(iface.GetLocal()));
