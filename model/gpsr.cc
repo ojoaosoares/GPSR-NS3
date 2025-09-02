@@ -905,40 +905,40 @@ namespace ns3 {
 
         Ipv4Address nextHop;
 
-      /*  if (m_neighbors.isNeighbour(dst))
-          {
+        if (m_neighbors.isNeighbour(dst))
+        {
             nextHop = dst;
-          }
+        }
+
         else
-          {
-      */
+        {
             nextHop = m_neighbors.BestNeighbor(Position, myPos);
-            if (nextHop != Ipv4Address::GetZero())
-            {
-                PositionHeader posHeader(Position.x, Position.y,  updated,(uint64_t) 0,(uint64_t) 0,(uint8_t) 0, myPos.x, myPos.y);
-                p->AddHeader(posHeader);
-                p->AddHeader(tHeader);
-                
-                
-                Ptr<NetDevice> oif = m_ipv4->GetObject<NetDevice>();
-                Ptr<Ipv4Route> route = Create<Ipv4Route>();
-                route->SetDestination(dst);
-                route->SetSource(header.GetSource());
-                route->SetGateway(nextHop);
-                
-                // FIXME: Does not work for multiple interfaces
-                route->SetOutputDevice(m_ipv4->GetNetDevice(1));
-                route->SetDestination(header.GetDestination());
-                NS_ASSERT(route != 0);
-                NS_LOG_DEBUG("Exist route to " << route->GetDestination() << " from interface " << route->GetOutputDevice());
-                
-                
-                NS_LOG_LOGIC(route->GetOutputDevice() << " forwarding to " << dst << " from " << origin << " through " << route->GetGateway() << " packet " << p->GetUid());
-                
-                ucb(route, p, header);
-                return true;
-            }
-      //    }
+        }
+
+        if (nextHop != Ipv4Address::GetZero())
+        {
+            PositionHeader posHeader(Position.x, Position.y,  updated,(uint64_t) 0,(uint64_t) 0,(uint8_t) 0, myPos.x, myPos.y);
+            p->AddHeader(posHeader);
+            p->AddHeader(tHeader);
+            
+            Ptr<NetDevice> oif = m_ipv4->GetObject<NetDevice>();
+            Ptr<Ipv4Route> route = Create<Ipv4Route>();
+            route->SetDestination(dst);
+            route->SetSource(header.GetSource());
+            route->SetGateway(nextHop);
+            
+            // FIXME: Does not work for multiple interfaces
+            route->SetOutputDevice(m_ipv4->GetNetDevice(1));
+            route->SetDestination(header.GetDestination());
+            NS_ASSERT(route != 0);
+            NS_LOG_DEBUG("Exist route to " << route->GetDestination() << " from interface " << route->GetOutputDevice());
+            
+            NS_LOG_LOGIC(route->GetOutputDevice() << " forwarding to " << dst << " from " << origin << " through " << route->GetGateway() << " packet " << p->GetUid());
+            
+            ucb(route, p, header);
+            return true;
+        }
+
         hdr.SetInRec(1);
         hdr.SetRecPosx(myPos.x);
         hdr.SetRecPosy(myPos.y); 
