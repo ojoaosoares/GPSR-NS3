@@ -38,11 +38,13 @@ cd ns-allinone-3.29/ns-3.29
 
 ### Add the GPSR module
 
-Clone the GPSR repository inside the src/ directory:
+Clone the location service repositoy, then the GPSR repository inside the src/ directory:
 
 ```bash
 cd src
-git clone git@github.com:ojoaosoares/GPSR-NS3.git
+git clone https://github.com/ojoaosoares/Location-Service-NS3.git
+mv Location-Service-NS3 location-service
+git clone https://github.com/ojoaosoares/GPSR-NS3.git
 mv GPSR-NS3 gpsr
 ```
 
