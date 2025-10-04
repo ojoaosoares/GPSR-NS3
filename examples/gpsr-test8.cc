@@ -190,12 +190,6 @@ GpsrExample::Report (std::ostream &os)
   double timeDataFirstTx = std::numeric_limits<double>::max ();
   double timeDataLastRx = 0.0;
 
-  uint64_t totalControlRxPackets = 0;
-  uint64_t totalControlTxPackets = 0;
-  uint64_t totalControlRxBytes = 0;
-  uint64_t totalControlTxBytes = 0;
-
-
   for (auto const &flow : stats)
     {
       const FlowMonitor::FlowStats &st = flow.second;
@@ -221,26 +215,12 @@ GpsrExample::Report (std::ostream &os)
         if (st.timeLastRxPacket.GetSeconds () > timeDataLastRx)
           timeDataLastRx = st.timeLastRxPacket.GetSeconds ();
       }
-
-      else
-      {
-        totalControlRxPackets += st.rxPackets;
-        totalControlTxPackets += st.txPackets;
-        totalControlRxBytes += st.rxBytes;
-        totalControlTxBytes += st.txBytes;
-      }
     }
 
   double avgDelay = (countedDataPackets > 0) ? totalDataDelay / countedDataPackets : 0.0;
   double duration = timeDataLastRx - timeDataFirstTx;
   double throughputKbps = (duration > 0) ? (totalDataRxBytes * 8.0 / duration / 1024) : 0.0;
   double packetLossRatio = (totalDataTxPackets > 0) ? (double)totalDataLostPackets / totalDataTxPackets : 0.0;
-
-
-  double rohPackets = ((totalDataRxPackets + totalControlRxPackets) > 0) ? 
-  (double)totalControlTxPackets / (double) (totalDataRxPackets + totalControlRxPackets) : 0.0;
-  double rohBytes = ((totalDataRxBytes + totalControlRxBytes) > 0) ? 
-  (double)totalControlTxBytes / (double) (totalDataRxBytes + totalControlRxBytes) : 0.0;
   
   os << "========== Data Metrics ==========\n";
   os << "Tx Packets: " << totalDataTxPackets << "\n";
@@ -249,12 +229,6 @@ GpsrExample::Report (std::ostream &os)
   os << "Packet Loss Ratio: " << packetLossRatio << "\n";
   os << "Aggregate Throughput: " << throughputKbps << " Kbps\n";
   os << "Average Delay: " << avgDelay << " s\n";
-  os << "========== Control Metrics ==========\n";
-  os << "Tx Packets: " << totalControlTxPackets << "\n";
-  os << "RX Packets: " << totalControlRxPackets << "\n";
-  os << "Roh Packets: " << rohPackets << "\n";
-  os << "Roh Bytes: " << rohBytes << "\n";
-  os << "========================================\n";
 }
 
 void
