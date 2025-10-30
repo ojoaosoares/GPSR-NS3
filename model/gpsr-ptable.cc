@@ -173,6 +173,50 @@ namespace ns3 {
           return Ipv4Address::GetZero(); //so it enters Recovery-mode
     }
 
+    std::vector<std::pair<Ipv4Address, Vector>>
+    PositionTable::GetGabrielNeighbors(Vector nodePos)
+    {
+        Purge();
+
+        std::vector<std::pair<Ipv4Address, Vector>> gabrielNeighbors;
+
+        for (auto itA = m_table.begin(); itA != m_table.end(); ++itA)
+        {
+            Ipv4Address aId = itA->first;
+            Vector aPos = itA->second.first;
+
+            bool edgeValid = true;
+
+            for (auto itB = m_table.begin(); itB != m_table.end(); ++itB)
+            {
+                if (itB->first == aId)
+                    continue;
+
+                Vector bPos = itB->second.first;
+
+                Vector mid;
+                mid.x = (nodePos.x + aPos.x) / 2.0;
+                mid.y = (nodePos.y + aPos.y) / 2.0;
+                mid.z = (nodePos.z + aPos.z) / 2.0;
+
+                double radius = CalculateDistance(nodePos, aPos) / 2.0;
+                double distMidB = CalculateDistance(mid, bPos);
+
+                if (distMidB < radius - 1e-6)
+                {
+                    edgeValid = false;
+                    break;
+                }
+            }
+
+            if (edgeValid)
+                gabrielNeighbors.push_back({aId, aPos});
+        }
+
+        return gabrielNeighbors;
+    }
+
+
     /**
      * \brief Gets next hop according to GPSR recovery-mode protocol(right hand rule)
      * \param previousHop the position of the node that sent the packet to this node
