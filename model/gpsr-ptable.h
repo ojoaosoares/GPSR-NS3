@@ -95,6 +95,7 @@ namespace ns3 {
         }
 
         std::vector<std::pair<Ipv4Address, Vector>> GetGabrielNeighbors(Vector nodePos);
+        std::vector<std::pair<Ipv4Address, Vector>> GetRngNeighbors(Vector nodePos);
         
         /**
          * \brief Gets next hop according to GPSR recovery-mode protocol(right hand rule)

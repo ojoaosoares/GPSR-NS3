@@ -217,6 +217,45 @@ namespace ns3 {
     }
 
 
+    std::vector<std::pair<Ipv4Address, Vector>>
+    PositionTable::GetRngNeighbors(Vector nodePos)
+    {
+        Purge();
+
+        std::vector<std::pair<Ipv4Address, Vector>> rngNeighbors;
+
+        for (auto itA = m_table.begin(); itA != m_table.end(); ++itA)
+        {
+            Ipv4Address aId = itA->first;
+            Vector aPos = itA->second.first;
+
+            bool edgeValid = true;
+
+            for (auto itB = m_table.begin(); itB != m_table.end(); ++itB)
+            {
+                if (itB->first == aId)
+                    continue;
+
+                Vector bPos = itB->second.first;
+
+                double dAB = CalculateDistance(aPos, bPos);
+                double dN_A = CalculateDistance(nodePos, aPos);
+                double dN_B = CalculateDistance(nodePos, bPos);
+
+                if (dAB < std::max(dN_A, dN_B) - 1e-6)
+                {
+                    edgeValid = false;
+                    break;
+                }
+            }
+
+            if (edgeValid)
+                rngNeighbors.push_back({aId, aPos});
+        }
+
+        return rngNeighbors;
+    }
+
     /**
      * \brief Gets next hop according to GPSR recovery-mode protocol(right hand rule)
      * \param previousHop the position of the node that sent the packet to this node
