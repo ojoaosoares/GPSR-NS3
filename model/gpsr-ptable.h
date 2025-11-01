@@ -15,6 +15,9 @@
 #include "ns3/random-variable-stream.h"
 #include <complex>
 
+#define GPSR_NEIGHBOUR_TYPE_NONE 0
+#define GPSR_NEIGHBOUR_TYPE_GABRIEL 1
+#define GPSR_NEIGHBOUR_TYPE_RNG 2
 namespace ns3 {
   namespace gpsr {
 
@@ -26,7 +29,7 @@ namespace ns3 {
     {
       public:
         /// c-tor
-        PositionTable();
+        PositionTable(Time entryTime, uint8_t graphType);
 
         /**
          * \brief Gets the last time the entry was updated
@@ -94,9 +97,6 @@ namespace ns3 {
           return Vector(-1, -1, 0);
         }
 
-        std::vector<std::pair<Ipv4Address, Vector>> GetGabrielNeighbors(Vector nodePos);
-        std::vector<std::pair<Ipv4Address, Vector>> GetRngNeighbors(Vector nodePos);
-        
         /**
          * \brief Gets next hop according to GPSR recovery-mode protocol(right hand rule)
          * \param previousHop the position of the node that sent the packet to this node
@@ -105,16 +105,21 @@ namespace ns3 {
          */
         Ipv4Address BestAngle(Vector previousHop, Vector nodePos);
 
-        //Gives angle between the vector CentrePos-Refpos to the vector CentrePos-node counterclockwise
-        double GetAngle(Vector centrePos, Vector refPos, Vector node);
-
       private:
         Time m_entryLifeTime;
         std::map<Ipv4Address, std::pair<Vector, Time> > m_table;
+
+        std::vector<std::pair<Ipv4Address, Vector>> GetNeighbors(Vector nodePos);
+        std::vector<std::pair<Ipv4Address, Vector>> GetGabrielNeighbors(Vector nodePos);
+        std::vector<std::pair<Ipv4Address, Vector>> GetRngNeighbors(Vector nodePos);
+
+        //Gives angle between the vector CentrePos-Refpos to the vector CentrePos-node counterclockwise
+        double GetAngle(Vector centrePos, Vector refPos, Vector node);
         // TX error callback
         Callback<void, WifiMacHeader const &> m_txErrorCallback;
         // Process layer 2 TX error notification
         void ProcessTxError(WifiMacHeader const&);
+        uint8_t graphType; //0 - NONE, 1 - Gabriel, 2 - RNG
     };
   }   // gpsr
 } // ns3

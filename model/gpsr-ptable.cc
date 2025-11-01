@@ -11,10 +11,9 @@ namespace ns3 {
       GPSR position table
     */
 
-    PositionTable::PositionTable()
+    PositionTable::PositionTable(Time entryTime, uint8_t graphType) : m_entryLifeTime(entryTime), graphType(graphType)
     {
         m_txErrorCallback = MakeCallback(&PositionTable::ProcessTxError, this);
-        m_entryLifeTime = Seconds(2); //FIXME fazer isto parametrizavel de acordo com tempo de hello
     }
 
     Time 
@@ -174,6 +173,33 @@ namespace ns3 {
     }
 
     std::vector<std::pair<Ipv4Address, Vector>>
+    PositionTable::GetNeighbors(Vector nodePos)
+    {
+        std::vector<Ipv4Address> toErase;
+        std::vector<std::pair<Ipv4Address, Vector>> neighbors;
+
+        for (const auto& entry : m_table)
+        {
+            if (m_entryLifeTime + GetEntryUpdateTime(entry.first) <= Simulator::Now())
+            {
+                toErase.insert(toErase.begin(), entry.first);
+            }
+
+            else {
+
+                neighbors.push_back({entry.first, entry.second.first});
+            }
+        }
+
+        for (const auto& id : toErase)
+        {
+            m_table.erase(id);
+        }
+
+        return neighbors;
+    }
+
+    std::vector<std::pair<Ipv4Address, Vector>>
     PositionTable::GetGabrielNeighbors(Vector nodePos)
     {
         Purge();
@@ -265,33 +291,45 @@ namespace ns3 {
     Ipv4Address
     PositionTable::BestAngle(Vector previousHop, Vector nodePos)
     {
-        Purge();
-
         if (m_table.empty())
         {
             NS_LOG_DEBUG("BestNeighbor table is empty; Position: " << nodePos);
             return Ipv4Address::GetZero();
-        }     //if table is empty(no neighbours)
+        }
 
         double tmpAngle;
         Ipv4Address bestFoundID = Ipv4Address::GetZero();
         double bestFoundAngle = 360;
-        std::map<Ipv4Address, std::pair<Vector, Time> >::iterator i;
 
-        for (i = m_table.begin(); !(i == m_table.end()); i++)
+        std::vector<std::pair<Ipv4Address, Vector>> neighbors;
+
+        if (graphType == GPSR_NEIGHBOUR_TYPE_NONE)
+            neighbors = GetNeighbors(nodePos);
+        
+        else if (graphType == GPSR_NEIGHBOUR_TYPE_GABRIEL)
+            neighbors = GetGabrielNeighbors(nodePos);
+        
+        else if (graphType == GPSR_NEIGHBOUR_TYPE_RNG)
+            neighbors = GetRngNeighbors(nodePos);
+        
+        if (neighbors.empty())
         {
-            tmpAngle = GetAngle(nodePos, previousHop, i->second.first);
+            NS_LOG_DEBUG("BestNeighbor table is empty; Position: " << nodePos);
+            return Ipv4Address::GetZero();
+        }
+
+        for (auto i = neighbors.begin(); i != neighbors.end(); ++i)
+        {
+            tmpAngle = GetAngle(nodePos, previousHop, i->second);
             if (bestFoundAngle > tmpAngle && tmpAngle != 0)
             {
-              bestFoundID = i->first;
-              bestFoundAngle = tmpAngle;
+                bestFoundID = i->first;
+                bestFoundAngle = tmpAngle;
             }
         }
 
-        if (bestFoundID == Ipv4Address::GetZero()) //only if the only neighbour is who sent the packet
-        {
-            bestFoundID = m_table.begin()->first;
-        }
+        if (bestFoundID == Ipv4Address::GetZero())
+            bestFoundID = neighbors.begin()->first;
         
         return bestFoundID;
     }
