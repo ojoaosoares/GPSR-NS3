@@ -85,37 +85,60 @@ namespace ns3 {
     const uint32_t RoutingProtocol::GPSR_PORT = 666;
 
     RoutingProtocol::RoutingProtocol()
-      : HelloInterval(Seconds(1)),
-        MaxQueueLen(64),
-        MaxQueueTime(Seconds(30)),
+      : 
         m_queue(MaxQueueLen, MaxQueueTime),
         HelloIntervalTimer(Timer::CANCEL_ON_DESTROY),
+        m_neighbors(EntryLifeTime, GraphType),
         PerimeterMode(false)
     {
-      m_neighbors = PositionTable();
     }
 
     TypeId
     RoutingProtocol::GetTypeId(void)
     {
-      static TypeId tid = TypeId("ns3::gpsr::RoutingProtocol")
-        .SetParent<Ipv4RoutingProtocol>()
-        .AddConstructor<RoutingProtocol>()
-        .AddAttribute("HelloInterval", "HELLO messages emission interval.",
-                      TimeValue(Seconds(1)),
-                      MakeTimeAccessor(&RoutingProtocol::HelloInterval),
-                      MakeTimeChecker())
-        .AddAttribute("LocationServiceName", "Indicates wich Location Service is enabled",
-                      EnumValue(GPSR_LS_GOD),
-                      MakeEnumAccessor(&RoutingProtocol::LocationServiceName),
-                      MakeEnumChecker(GPSR_LS_GOD, "GOD",
+        static TypeId tid = TypeId("ns3::gpsr::RoutingProtocol")
+            .SetParent<Ipv4RoutingProtocol>()
+            .AddConstructor<RoutingProtocol>()
+            .AddAttribute("HelloInterval", "HELLO messages emission interval.",
+                        TimeValue(Seconds(1)),
+                        MakeTimeAccessor(&RoutingProtocol::HelloInterval),
+                        MakeTimeChecker())
+            .AddAttribute("MaxQueueLen",
+                      "Maximum queue length for packets.",
+                      UintegerValue(64),
+                      MakeUintegerAccessor(&RoutingProtocol::SetMaxQueueLen,
+                                            &RoutingProtocol::GetMaxQueueLen),
+                      MakeUintegerChecker<uint32_t>())
+            .AddAttribute("MaxQueueTime",
+                        "Maximum queue waiting time.",
+                        TimeValue(Seconds(30)),
+                        MakeTimeAccessor(&RoutingProtocol::SetMaxQueueTime,
+                                        &RoutingProtocol::GetMaxQueueTime),
+                        MakeTimeChecker())
+            .AddAttribute("EntryLifeTime",
+                        "Lifetime of routing table entries.",
+                        TimeValue(Seconds(2)),
+                        MakeTimeAccessor(&RoutingProtocol::SetEntryLifeTime,
+                                        &RoutingProtocol::GetEntryLifeTime),
+                        MakeTimeChecker())
+            .AddAttribute("GraphType",
+                      "Type of graph used for neighbor selection (passed to PositionTable).",
+                      UintegerValue(0),
+                      MakeUintegerAccessor(&RoutingProtocol::SetGraphType,
+                                            &RoutingProtocol::GetGraphType),
+                      MakeUintegerChecker<uint8_t>())
+            .AddAttribute("LocationServiceName", "Indicates which Location Service is enabled.",
+                        EnumValue(GPSR_LS_GOD),
+                        MakeEnumAccessor(&RoutingProtocol::LocationServiceName),
+                        MakeEnumChecker(GPSR_LS_GOD, "GOD",
                                         GPSR_LS_RLS, "RLS"))
-        .AddAttribute("PerimeterMode", "Indicates if PerimeterMode is enabled",
-                      BooleanValue(false),
-                      MakeBooleanAccessor(&RoutingProtocol::PerimeterMode),
-                      MakeBooleanChecker());
-      return tid;
+            .AddAttribute("PerimeterMode", "Indicates if PerimeterMode is enabled.",
+                        BooleanValue(false),
+                        MakeBooleanAccessor(&RoutingProtocol::PerimeterMode),
+                        MakeBooleanChecker());
+        return tid;
     }
+
 
     RoutingProtocol::~RoutingProtocol()
     {

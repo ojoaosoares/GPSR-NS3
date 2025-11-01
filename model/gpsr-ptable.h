@@ -105,6 +105,16 @@ namespace ns3 {
          */
         Ipv4Address BestAngle(Vector previousHop, Vector nodePos);
 
+        void SetGraphType(uint8_t type)
+        {
+          graphType = type;
+        }
+
+        void SetEntryLifeTime(Time time)
+        {
+          m_entryLifeTime = time;
+        }
+
       private:
         Time m_entryLifeTime;
         std::map<Ipv4Address, std::pair<Vector, Time> > m_table;

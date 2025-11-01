@@ -25,49 +25,58 @@
 #include "ns3/node-container.h"
 #include "ns3/callback.h"
 #include "ns3/udp-l4-protocol.h"
-
+#include "ns3/uinteger.h"
 namespace ns3 {
 
-  GpsrHelper::GpsrHelper ()
+  GpsrHelper::GpsrHelper (Time helloInterval,
+                          uint32_t maxQueueLen,
+                          Time maxQueueTime,
+                          Time entryLifeTime,
+                          uint8_t graphType)
     : Ipv4RoutingHelper ()
   {
-      m_agentFactory.SetTypeId ("ns3::gpsr::RoutingProtocol");
+    m_agentFactory.SetTypeId ("ns3::gpsr::RoutingProtocol");
+    m_agentFactory.Set("HelloInterval", TimeValue(helloInterval));
+    m_agentFactory.Set("MaxQueueLen", UintegerValue(maxQueueLen));
+    m_agentFactory.Set("MaxQueueTime", TimeValue(maxQueueTime));
+    m_agentFactory.Set("EntryLifeTime", TimeValue(entryLifeTime));
+    m_agentFactory.Set("GraphType", UintegerValue(graphType));
   }
 
   GpsrHelper*
   GpsrHelper::Copy (void) const
   {
-      return new GpsrHelper (*this);
+        return new GpsrHelper (*this);
   }
 
   Ptr<Ipv4RoutingProtocol>
   GpsrHelper::Create (Ptr<Node> node) const
   {
-      //Ptr<Ipv4L4Protocol> ipv4l4 = node->GetObject<Ipv4L4Protocol> ();
-      Ptr<gpsr::RoutingProtocol> gpsr = m_agentFactory.Create<gpsr::RoutingProtocol> ();
-      //gpsr->SetDownTarget (ipv4l4->GetDownTarget ());
-      //ipv4l4->SetDownTarget (MakeCallback (&gpsr::RoutingProtocol::AddHeaders, gpsr));
-      node->AggregateObject (gpsr);
-      return gpsr;
+        //Ptr<Ipv4L4Protocol> ipv4l4 = node->GetObject<Ipv4L4Protocol> ();
+        Ptr<gpsr::RoutingProtocol> gpsr = m_agentFactory.Create<gpsr::RoutingProtocol>();
+        //gpsr->SetDownTarget (ipv4l4->GetDownTarget ());
+        //ipv4l4->SetDownTarget (MakeCallback (&gpsr::RoutingProtocol::AddHeaders, gpsr));
+        node->AggregateObject (gpsr);
+        return gpsr;
   }
 
   void
   GpsrHelper::Set (std::string name, const AttributeValue &value)
   {
-      m_agentFactory.Set (name, value);
+        m_agentFactory.Set(name, value);
   }
 
   void 
   GpsrHelper::Install (void) const
   {
-      NodeContainer c = NodeContainer::GetGlobal ();
-      for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
-      {
-          Ptr<Node> node = (*i);
-          Ptr<UdpL4Protocol> udp = node->GetObject<UdpL4Protocol> ();
-          Ptr<gpsr::RoutingProtocol> gpsr = node->GetObject<gpsr::RoutingProtocol> ();
-          gpsr->SetDownTarget (udp->GetDownTarget ());
-          udp->SetDownTarget (MakeCallback(&gpsr::RoutingProtocol::AddHeaders, gpsr));
-      }
+        NodeContainer c = NodeContainer::GetGlobal ();
+        for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
+        {
+            Ptr<Node> node = (*i);
+            Ptr<UdpL4Protocol> udp = node->GetObject<UdpL4Protocol> ();
+            Ptr<gpsr::RoutingProtocol> gpsr = node->GetObject<gpsr::RoutingProtocol> ();
+            gpsr->SetDownTarget (udp->GetDownTarget ());
+            udp->SetDownTarget (MakeCallback(&gpsr::RoutingProtocol::AddHeaders, gpsr));
+        }
   }
 }
