@@ -33,7 +33,11 @@ namespace ns3 {
   class GpsrHelper : public Ipv4RoutingHelper
   {
     public:
-      GpsrHelper ();
+      GpsrHelper (Time helloInterval = Seconds (1),
+                  uint32_t maxQueueLen = 64,
+                  Time maxQueueTime = Seconds (30),
+                  Time entryLifeTime = Seconds (2),
+                  uint8_t graphType = 0);
 
       /**
        * \internal

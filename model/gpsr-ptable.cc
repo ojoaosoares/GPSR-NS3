@@ -11,10 +11,9 @@ namespace ns3 {
       GPSR position table
     */
 
-    PositionTable::PositionTable()
+    PositionTable::PositionTable(Time entryTime, uint8_t graphType) : m_entryLifeTime(entryTime), graphType(graphType)
     {
         m_txErrorCallback = MakeCallback(&PositionTable::ProcessTxError, this);
-        m_entryLifeTime = Seconds(2); //FIXME fazer isto parametrizavel de acordo com tempo de hello
     }
 
     Time 
@@ -173,6 +172,123 @@ namespace ns3 {
           return Ipv4Address::GetZero(); //so it enters Recovery-mode
     }
 
+    std::vector<std::pair<Ipv4Address, Vector>>
+    PositionTable::GetNeighbors()
+    {
+        std::vector<Ipv4Address> toErase;
+        std::vector<std::pair<Ipv4Address, Vector>> neighbors;
+
+        for (const auto& entry : m_table)
+        {
+            if (m_entryLifeTime + GetEntryUpdateTime(entry.first) <= Simulator::Now())
+            {
+                toErase.insert(toErase.begin(), entry.first);
+            }
+
+            else {
+
+                neighbors.push_back({entry.first, entry.second.first});
+            }
+        }
+
+        for (const auto& id : toErase)
+        {
+            m_table.erase(id);
+        }
+
+        return neighbors;
+    }
+
+    std::vector<std::pair<Ipv4Address, Vector>>
+    PositionTable::GetGabrielNeighbors(const Vector& nodePos)
+    {
+        Purge();
+        std::vector<std::pair<Ipv4Address, Vector>> gabrielNeighbors;
+
+        for (auto itA = m_table.begin(); itA != m_table.end(); ++itA)
+        {
+            const Ipv4Address& aId = itA->first;
+            const Vector& aPos = itA->second.first;
+
+            if (aPos.x == nodePos.x && aPos.y == nodePos.y)
+                continue;
+
+            Vector mid;
+            mid.x = (nodePos.x + aPos.x) / 2.0;
+            mid.y = (nodePos.y + aPos.y) / 2.0;
+
+            double radius = CalculateDistance(nodePos, aPos) / 2.0;
+            bool edgeValid = true;
+
+            for (auto itB = m_table.begin(); itB != m_table.end(); ++itB)
+            {
+                const Ipv4Address& bId = itB->first;
+                const Vector& bPos = itB->second.first;
+
+                if (bId == aId)
+                    continue;
+
+                double distMidB = CalculateDistance(mid, bPos);
+
+                if (distMidB < radius - 1e-6)
+                {
+                    edgeValid = false;
+                    break;
+                }
+            }
+
+            if (edgeValid)
+                gabrielNeighbors.push_back(std::make_pair(aId, aPos));
+        }
+
+        return gabrielNeighbors;
+    }
+
+
+
+    std::vector<std::pair<Ipv4Address, Vector>>
+    PositionTable::GetRngNeighbors(const Vector& nodePos)
+    {
+        Purge();
+        std::vector<std::pair<Ipv4Address, Vector>> rngNeighbors;
+
+        for (auto itA = m_table.begin(); itA != m_table.end(); ++itA)
+        {
+            const Ipv4Address& aId = itA->first;
+            const Vector& aPos = itA->second.first;
+
+            if (aPos.x == nodePos.x && aPos.y == nodePos.y)
+                continue;
+
+            double dNA = CalculateDistance(nodePos, aPos);
+            bool edgeValid = true;
+
+            for (auto itB = m_table.begin(); itB != m_table.end(); ++itB)
+            {
+                const Ipv4Address& bId = itB->first;
+                const Vector& bPos = itB->second.first;
+
+                if (bId == aId)
+                    continue;
+
+                double dNB = CalculateDistance(nodePos, bPos);
+                double dAB = CalculateDistance(aPos, bPos);
+
+                if (dAB < std::max(dNA, dNB) - 1e-6)
+                {
+                    edgeValid = false;
+                    break;
+                }
+            }
+
+            if (edgeValid)
+                rngNeighbors.push_back(std::make_pair(aId, aPos));
+        }
+
+        return rngNeighbors;
+    }
+
+
     /**
      * \brief Gets next hop according to GPSR recovery-mode protocol(right hand rule)
      * \param previousHop the position of the node that sent the packet to this node
@@ -182,68 +298,63 @@ namespace ns3 {
     Ipv4Address
     PositionTable::BestAngle(Vector previousHop, Vector nodePos)
     {
-        Purge();
-
         if (m_table.empty())
         {
             NS_LOG_DEBUG("BestNeighbor table is empty; Position: " << nodePos);
             return Ipv4Address::GetZero();
-        }     //if table is empty(no neighbours)
+        }
 
         double tmpAngle;
         Ipv4Address bestFoundID = Ipv4Address::GetZero();
         double bestFoundAngle = 360;
-        std::map<Ipv4Address, std::pair<Vector, Time> >::iterator i;
 
-        for (i = m_table.begin(); !(i == m_table.end()); i++)
+        std::vector<std::pair<Ipv4Address, Vector>> neighbors;
+
+        if (graphType == GPSR_NEIGHBOUR_TYPE_NONE)
+            neighbors = GetNeighbors();
+        
+        else if (graphType == GPSR_NEIGHBOUR_TYPE_GABRIEL)
+            neighbors = GetGabrielNeighbors(nodePos);
+        
+        else if (graphType == GPSR_NEIGHBOUR_TYPE_RNG)
+            neighbors = GetRngNeighbors(nodePos);
+        
+        if (neighbors.empty())
         {
-            tmpAngle = GetAngle(nodePos, previousHop, i->second.first);
+            NS_LOG_DEBUG("BestNeighbor table is empty; Position: " << nodePos);
+            return Ipv4Address::GetZero();
+        }
+
+        for (auto i = neighbors.begin(); i != neighbors.end(); ++i)
+        {
+            tmpAngle = GetAngle(nodePos, previousHop, i->second);
             if (bestFoundAngle > tmpAngle && tmpAngle != 0)
             {
-              bestFoundID = i->first;
-              bestFoundAngle = tmpAngle;
+                bestFoundID = i->first;
+                bestFoundAngle = tmpAngle;
             }
         }
 
-        if (bestFoundID == Ipv4Address::GetZero()) //only if the only neighbour is who sent the packet
-        {
-            bestFoundID = m_table.begin()->first;
-        }
+        if (bestFoundID == Ipv4Address::GetZero())
+            bestFoundID = neighbors.begin()->first;
         
         return bestFoundID;
     }
 
-    //Gives angle between the vector CentrePos-Refpos to the vector CentrePos-node counterclockwise
-    double 
-    PositionTable::GetAngle(Vector centrePos, Vector refPos, Vector node)
+    double PositionTable::GetAngle(Vector centrePos, Vector refPos, Vector node)
     {
-        double const PI = 4*atan(1);
+        double dx1 = node.x - centrePos.x;
+        double dy1 = node.y - centrePos.y;
+        double dx2 = refPos.x - centrePos.x;
+        double dy2 = refPos.y - centrePos.y;
 
-        std::complex<double> A = std::complex<double>(centrePos.x,centrePos.y);
-        std::complex<double> B = std::complex<double>(node.x,node.y);
-        std::complex<double> C = std::complex<double>(refPos.x,refPos.y);   //Change B with C if you want angles clockwise
+        double angle1 = atan2(dy1, dx1);
+        double angle2 = atan2(dy2, dx2);
 
-        std::complex<double> AB; //reference edge
-        std::complex<double> AC;
-        std::complex<double> tmp;
-        std::complex<double> tmpCplx;
+        double angle = angle1 - angle2;
+        if (angle < 0) angle += 2*M_PI;
 
-        std::complex<double> Angle;
-
-        AB = B - A;
-        AB =(real(AB)/norm(AB)) +(std::complex<double>(0.0,1.0)*(imag(AB)/norm(AB)));
-
-        AC = C - A;
-        AC =(real(AC)/norm(AC)) +(std::complex<double>(0.0,1.0)*(imag(AC)/norm(AC)));
-
-        tmp = log(AC/AB);
-        tmpCplx = std::complex<double>(0.0,-1.0);
-        Angle = tmp*tmpCplx;
-        Angle *=(180/PI);
-        if (real(Angle)<0)
-          Angle = 360+real(Angle);
-
-        return real(Angle);
+        return angle * 180.0 / M_PI;
     }
 
     /**

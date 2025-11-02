@@ -75,7 +75,38 @@ namespace ns3 {
         /// Request sequence number
         uint32_t m_seqNo;
 
-        /// Number of RREQs used for RREQ rate control
+        void SetMaxQueueLen(uint32_t maxQueueLen) {
+          m_queue.SetMaxQueueLen(maxQueueLen);
+        }
+
+        uint32_t GetMaxQueueLen() const {
+          return m_queue.GetMaxQueueLen();
+        }
+
+        void SetMaxQueueTime(Time maxQueueTime) {
+          m_queue.SetQueueTimeout(maxQueueTime);
+        }
+
+        Time GetMaxQueueTime() const {
+          return m_queue.GetQueueTimeout();
+        }
+
+        void SetEntryLifeTime(Time entryLifeTime) {
+          m_neighbors.SetEntryLifeTime(entryLifeTime);
+        }
+
+        Time GetEntryLifeTime() const {
+          return m_neighbors.GetEntryLifeTime();
+        }
+
+        void SetGraphType(uint8_t graphType) {
+          m_neighbors.SetGraphType(graphType);
+        }
+
+        uint8_t GetGraphType() const {
+          return m_neighbors.GetGraphType();
+        }
+
         uint16_t m_rreqCount;
         Time HelloInterval;
 
@@ -113,8 +144,6 @@ namespace ns3 {
 
         void RecoveryMode(Ipv4Address dst, Ptr<Packet> p, UnicastForwardCallback ucb, Ipv4Header header);
         
-        uint32_t MaxQueueLen;                  ///< The maximum number of packets that we allow a routing protocol to buffer.
-        Time MaxQueueTime;                     ///< The maximum period of time that a routing protocol is allowed to buffer a packet for.
         RequestQueue m_queue;
 
         Timer HelloIntervalTimer;
