@@ -66,7 +66,7 @@ private:
   std::set<Ipv4Address> sinkTargets;
 
   bool showPaths;
-  int64_t seed; // <--- adiciona seed
+  int64_t seed;
 };
 
 int main (int argc, char **argv)
@@ -96,7 +96,7 @@ GpsrExample::GpsrExample () :
   mapWidth (250.0),
   mapHeight (250.0),
   showPaths (false),
-  seed (-1) // -1 significa que não foi passada
+  seed (-1)
 {
 }
 
@@ -241,7 +241,6 @@ GpsrExample::CreateNodes ()
       Names::Add (os.str (), nodes.Get (i));
     }
 
-  // --- Parâmetros do mapa ---
   double midX = mapWidth / 2.0;
   Ptr<UniformRandomVariable> randX = CreateObject<UniformRandomVariable> ();
   Ptr<UniformRandomVariable> randY = CreateObject<UniformRandomVariable> ();
@@ -253,20 +252,13 @@ GpsrExample::CreateNodes ()
   MobilityHelper mobility;
   Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
 
-  // --- Distribuição dos nós ---
-  // node 0 = origem
-  // node size-1 = destino
-  // Metade dos nós intermediários ficam na região A (esquerda)
-  // Metade na região B (direita)
-
   Vector posSource (midX / 4.0, mapHeight / 2.0, 0.0);
   Vector posDest (mapWidth * 0.9, mapHeight / 2.0, 0.0);
 
-  positionAlloc->Add (posSource); // Node 0 (fonte)
+  positionAlloc->Add (posSource);
 
   uint32_t regionSize = (size - 2) / 2;
 
-  // Região A (esquerda)
   for (uint32_t i = 1; i <= regionSize; ++i)
     {
       double x = randX->GetValue (midX * 0.05, midX * 0.45);
@@ -274,7 +266,6 @@ GpsrExample::CreateNodes ()
       positionAlloc->Add (Vector (x, y, 0.0));
     }
 
-  // Região B (direita)
   for (uint32_t i = regionSize + 1; i < size - 1; ++i)
     {
       double x = randX->GetValue (midX * 0.55, mapWidth * 0.95);
@@ -282,7 +273,7 @@ GpsrExample::CreateNodes ()
       positionAlloc->Add (Vector (x, y, 0.0));
     }
 
-  positionAlloc->Add (posDest); // Node destino
+  positionAlloc->Add (posDest);
 
   mobility.SetPositionAllocator (positionAlloc);
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");

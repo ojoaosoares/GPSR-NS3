@@ -85,7 +85,7 @@ namespace ns3 {
 
         void SetMaxQueueTime(Time maxQueueTime) {
           m_queue.SetQueueTimeout(maxQueueTime);
-        }        
+        }
 
         Time GetMaxQueueTime() const {
           return m_queue.GetQueueTimeout();
@@ -98,7 +98,7 @@ namespace ns3 {
         Time GetEntryLifeTime() const {
           return m_neighbors.GetEntryLifeTime();
         }
-        
+
         void SetGraphType(uint8_t graphType) {
           m_neighbors.SetGraphType(graphType);
         }
@@ -107,7 +107,6 @@ namespace ns3 {
           return m_neighbors.GetGraphType();
         }
 
-        /// Number of RREQs used for RREQ rate control
         uint16_t m_rreqCount;
         Time HelloInterval;
 

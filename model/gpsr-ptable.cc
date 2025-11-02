@@ -213,12 +213,10 @@ namespace ns3 {
             if (aPos.x == nodePos.x && aPos.y == nodePos.y)
                 continue;
 
-            // Centro do segmento entre nodePos e aPos
             Vector mid;
             mid.x = (nodePos.x + aPos.x) / 2.0;
             mid.y = (nodePos.y + aPos.y) / 2.0;
 
-            // Raio = metade da distância entre os nós
             double radius = CalculateDistance(nodePos, aPos) / 2.0;
             bool edgeValid = true;
 
@@ -232,7 +230,6 @@ namespace ns3 {
 
                 double distMidB = CalculateDistance(mid, bPos);
 
-                // Se B estiver dentro do círculo de diâmetro (nodePos, aPos)
                 if (distMidB < radius - 1e-6)
                 {
                     edgeValid = false;
@@ -331,7 +328,7 @@ namespace ns3 {
         for (auto i = neighbors.begin(); i != neighbors.end(); ++i)
         {
             tmpAngle = GetAngle(nodePos, previousHop, i->second);
-            if (bestFoundAngle > tmpAngle)
+            if (bestFoundAngle > tmpAngle && tmpAngle != 0)
             {
                 bestFoundID = i->first;
                 bestFoundAngle = tmpAngle;
@@ -344,22 +341,22 @@ namespace ns3 {
         return bestFoundID;
     }
 
-    //Gives angle between the vector CentrePos-Refpos to the vector CentrePos-node counterclockwise
     double PositionTable::GetAngle(Vector centrePos, Vector refPos, Vector node)
-{
-    double dx1 = node.x - centrePos.x;
-    double dy1 = node.y - centrePos.y;
-    double dx2 = refPos.x - centrePos.x;
-    double dy2 = refPos.y - centrePos.y;
+    {
+        double dx1 = node.x - centrePos.x;
+        double dy1 = node.y - centrePos.y;
+        double dx2 = refPos.x - centrePos.x;
+        double dy2 = refPos.y - centrePos.y;
 
-    double angle1 = atan2(dy1, dx1);
-    double angle2 = atan2(dy2, dx2);
+        double angle1 = atan2(dy1, dx1);
+        double angle2 = atan2(dy2, dx2);
 
-    double angle = angle1 - angle2;
-    if (angle < 0) angle += 2*M_PI;
+        double angle = angle1 - angle2;
+        if (angle < 0) angle += 2*M_PI;
 
-    return angle * 180.0 / M_PI;
-}
+        return angle * 180.0 / M_PI;
+    }
+
     /**
      * \ProcessTxError
      */

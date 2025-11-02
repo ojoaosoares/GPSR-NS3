@@ -84,8 +84,7 @@ namespace ns3 {
     /// UDP Port for GPSR control traffic, not defined by IANA yet
     const uint32_t RoutingProtocol::GPSR_PORT = 666;
 
-    RoutingProtocol::RoutingProtocol()
-      : 
+    RoutingProtocol::RoutingProtocol() :
         m_queue(64, Seconds(30)),
         HelloIntervalTimer(Timer::CANCEL_ON_DESTROY),
         m_neighbors(Seconds(2), 0),
