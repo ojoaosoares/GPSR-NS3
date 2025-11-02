@@ -110,18 +110,28 @@ namespace ns3 {
           graphType = type;
         }
 
+        uint8_t GetGraphType() const
+        {
+          return graphType;
+        }
+
         void SetEntryLifeTime(Time time)
         {
           m_entryLifeTime = time;
+        }
+
+        Time GetEntryLifeTime() const
+        {
+          return m_entryLifeTime;
         }
 
       private:
         Time m_entryLifeTime;
         std::map<Ipv4Address, std::pair<Vector, Time> > m_table;
 
-        std::vector<std::pair<Ipv4Address, Vector>> GetNeighbors(Vector nodePos);
-        std::vector<std::pair<Ipv4Address, Vector>> GetGabrielNeighbors(Vector nodePos);
-        std::vector<std::pair<Ipv4Address, Vector>> GetRngNeighbors(Vector nodePos);
+        std::vector<std::pair<Ipv4Address, Vector>> GetNeighbors();
+        std::vector<std::pair<Ipv4Address, Vector>> GetGabrielNeighbors(const Vector& nodePos);
+        std::vector<std::pair<Ipv4Address, Vector>> GetRngNeighbors(const Vector& nodePos);
 
         //Gives angle between the vector CentrePos-Refpos to the vector CentrePos-node counterclockwise
         double GetAngle(Vector centrePos, Vector refPos, Vector node);

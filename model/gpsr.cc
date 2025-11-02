@@ -86,9 +86,9 @@ namespace ns3 {
 
     RoutingProtocol::RoutingProtocol()
       : 
-        m_queue(MaxQueueLen, MaxQueueTime),
+        m_queue(64, Seconds(30)),
         HelloIntervalTimer(Timer::CANCEL_ON_DESTROY),
-        m_neighbors(EntryLifeTime, GraphType),
+        m_neighbors(Seconds(2), 0),
         PerimeterMode(false)
     {
     }

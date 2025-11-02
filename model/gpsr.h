@@ -76,47 +76,40 @@ namespace ns3 {
         uint32_t m_seqNo;
 
         void SetMaxQueueLen(uint32_t maxQueueLen) {
-          MaxQueueLen = maxQueueLen;
           m_queue.SetMaxQueueLen(maxQueueLen);
         }
 
         uint32_t GetMaxQueueLen() const {
-          return MaxQueueLen;
+          return m_queue.GetMaxQueueLen();
         }
 
         void SetMaxQueueTime(Time maxQueueTime) {
-          MaxQueueTime = maxQueueTime;
           m_queue.SetQueueTimeout(maxQueueTime);
         }        
 
         Time GetMaxQueueTime() const {
-          return MaxQueueTime;
+          return m_queue.GetQueueTimeout();
         }
 
         void SetEntryLifeTime(Time entryLifeTime) {
-          EntryLifeTime = entryLifeTime;
           m_neighbors.SetEntryLifeTime(entryLifeTime);
         }
 
         Time GetEntryLifeTime() const {
-          return EntryLifeTime;
+          return m_neighbors.GetEntryLifeTime();
         }
         
         void SetGraphType(uint8_t graphType) {
-          GraphType = graphType;
+          m_neighbors.SetGraphType(graphType);
         }
 
         uint8_t GetGraphType() const {
-          return GraphType;
+          return m_neighbors.GetGraphType();
         }
 
         /// Number of RREQs used for RREQ rate control
         uint16_t m_rreqCount;
         Time HelloInterval;
-        uint32_t MaxQueueLen;
-        Time MaxQueueTime;
-        Time EntryLifeTime;
-        uint8_t GraphType;
 
         void SetDownTarget(IpL4Protocol::DownTargetCallback callback);
         IpL4Protocol::DownTargetCallback GetDownTarget(void) const;
