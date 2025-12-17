@@ -14,7 +14,12 @@
 #include "ns3/flow-monitor-module.h"
 #include <iostream>
 #include <cmath>
-#include <ctime>
+#include "ns3/onoff-application.h"
+#include "ns3/on-off-helper.h"
+#include "ns3/udp-server.h"
+#include "ns3/udp-socket-factory.h"
+
+
 
 using namespace ns3;
 
@@ -48,6 +53,10 @@ private:
   // Mobility
   double mapWidth;
   double mapHeight;
+  double speedMin;
+  double speedMax;
+  double pauseMin;
+  double pauseMax;
 
   // Network
   NodeContainer nodes;
@@ -66,7 +75,6 @@ private:
   std::set<Ipv4Address> sinkTargets;
 
   bool showPaths;
-  int64_t seed;
 };
 
 int main (int argc, char **argv)
@@ -81,28 +89,32 @@ int main (int argc, char **argv)
 }
 
 GpsrExample::GpsrExample () :
-  size (25),
+  size (50),
   txPowerStart(20.0),
   txPowerEnd(20.0),
   txPowerLevels (1),
   totalTime (30.0),
-  pcap (true),
+  pcap (false),
   rtsCtsThreshold (0),
   phyMode ("OfdmRate6Mbps"),
   port (9),
   packetSize (1024),
   maxPacketCount (10000000),
-  interPacketInterval (0.02),
-  mapWidth (250.0),
-  mapHeight (250.0),
-  showPaths (false),
-  seed (-1)
+  interPacketInterval (0.001),
+  mapWidth (100),
+  mapHeight (100),
+  speedMin (1.0),
+  speedMax (10),
+  pauseMin (0.0),
+  pauseMax (5.0),
+  showPaths (false)
 {
 }
 
 bool
 GpsrExample::Configure (int argc, char **argv)
 {
+  SeedManager::SetSeed(12345);
   CommandLine cmd;
 
   // General
@@ -112,7 +124,6 @@ GpsrExample::Configure (int argc, char **argv)
   cmd.AddValue ("txPowerStart", "Transmission power of nodes at start (dBm)", txPowerStart);
   cmd.AddValue ("txPowerEnd", "Transmission power of nodes at end (dBm)", txPowerEnd);
   cmd.AddValue ("txPowerLevels", "Number of transmission power levels", txPowerLevels);
-  cmd.AddValue ("seed", "Random number generator seed. If not provided, uses current time", seed);
 
   // WiFi
   cmd.AddValue ("rtsCts", "RTS/CTS threshold (0 = always, 2347 = disabled)", rtsCtsThreshold);
@@ -126,22 +137,14 @@ GpsrExample::Configure (int argc, char **argv)
   // Mobility
   cmd.AddValue ("mapWidth", "Width of the simulation area (m)", mapWidth);
   cmd.AddValue ("mapHeight", "Height of the simulation area (m)", mapHeight);
+  cmd.AddValue ("speedMin", "Minimum node speed (m/s)", speedMin);
+  cmd.AddValue ("speedMax", "Maximum node speed (m/s)", speedMax);
+  cmd.AddValue ("pauseMin", "Minimum pause time (s)", pauseMin);
+  cmd.AddValue ("pauseMax", "Maximum pause time (s)", pauseMax);
 
   cmd.AddValue ("showPaths", "Show discovered paths", showPaths);
 
   cmd.Parse (argc, argv);
-  
-   if (seed < 0)
-    {
-      seed = static_cast<int64_t>(time(nullptr)); // usa o tempo atual
-      std::cout << "Using time-based seed: " << seed << std::endl;
-    }
-  else
-    {
-      std::cout << "Using provided seed: " << seed << std::endl;
-    }
-  SeedManager::SetSeed(seed);
-
   return true;
 }
 
@@ -231,7 +234,7 @@ GpsrExample::Report (std::ostream &os)
 void
 GpsrExample::CreateNodes ()
 {
-  std::cout << "Creating " << (unsigned)size << " static nodes divided into two disjoint regions.\n";
+  std::cout << "Creating " << (unsigned)size << " nodes with Random Waypoint mobility.\n";
   nodes.Create (size);
 
   for (uint32_t i = 0; i < size; ++i)
@@ -241,47 +244,31 @@ GpsrExample::CreateNodes ()
       Names::Add (os.str (), nodes.Get (i));
     }
 
-  double midX = mapWidth / 2.0;
-  Ptr<UniformRandomVariable> randX = CreateObject<UniformRandomVariable> ();
-  Ptr<UniformRandomVariable> randY = CreateObject<UniformRandomVariable> ();
-  randX->SetAttribute ("Min", DoubleValue (0.0));
-  randX->SetAttribute ("Max", DoubleValue (mapWidth));
-  randY->SetAttribute ("Min", DoubleValue (0.0));
-  randY->SetAttribute ("Max", DoubleValue (mapHeight));
-
   MobilityHelper mobility;
-  Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
 
-  Vector posSource (midX / 4.0, mapHeight / 2.0, 0.0);
-  Vector posDest (mapWidth * 0.9, mapHeight / 2.0, 0.0);
+  Ptr<UniformRandomVariable> speed = CreateObject<UniformRandomVariable> ();
+  speed->SetAttribute ("Min", DoubleValue (speedMin));
+  speed->SetAttribute ("Max", DoubleValue (speedMax));
 
-  positionAlloc->Add (posSource);
+  Ptr<UniformRandomVariable> pause = CreateObject<UniformRandomVariable> ();
+  pause->SetAttribute ("Min", DoubleValue (pauseMin));
+  pause->SetAttribute ("Max", DoubleValue (pauseMax));
 
-  uint32_t regionSize = (size - 2) / 2;
+  Ptr<RandomRectanglePositionAllocator> positionAlloc = CreateObject<RandomRectanglePositionAllocator> ();
+  positionAlloc->SetX (CreateObjectWithAttributes<UniformRandomVariable> (
+                          "Min", DoubleValue (0.0),
+                          "Max", DoubleValue (mapWidth)));
+  positionAlloc->SetY (CreateObjectWithAttributes<UniformRandomVariable> (
+                          "Min", DoubleValue (0.0),
+                          "Max", DoubleValue (mapHeight)));
 
-  for (uint32_t i = 1; i <= regionSize; ++i)
-    {
-      double x = randX->GetValue (midX * 0.05, midX * 0.45);
-      double y = randY->GetValue (0.0, mapHeight);
-      positionAlloc->Add (Vector (x, y, 0.0));
-    }
-
-  for (uint32_t i = regionSize + 1; i < size - 1; ++i)
-    {
-      double x = randX->GetValue (midX * 0.55, mapWidth * 0.95);
-      double y = randY->GetValue (0.0, mapHeight);
-      positionAlloc->Add (Vector (x, y, 0.0));
-    }
-
-  positionAlloc->Add (posDest);
+  mobility.SetMobilityModel ("ns3::RandomWaypointMobilityModel",
+                             "Speed", PointerValue (speed),
+                             "Pause", PointerValue (pause),
+                             "PositionAllocator", PointerValue (positionAlloc));
 
   mobility.SetPositionAllocator (positionAlloc);
-  mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (nodes);
-
-  std::cout << "Nodes placed in two regions: "
-            << regionSize << " in region A, "
-            << (size - 2 - regionSize) << " in region B.\n";
 }
 
 void
@@ -324,6 +311,7 @@ GpsrExample::InstallInternetStack ()
 
   GpsrHelper gpsr;
 
+
   InternetStackHelper stack;
   stack.SetRoutingHelper (gpsr);
   stack.Install (nodes);
@@ -337,18 +325,28 @@ void
 GpsrExample::InstallApplications ()
 {
   UdpEchoServerHelper server (port);
-  uint16_t server1Position = size - 1; 
+  uint16_t server1Position = size - 1;
   ApplicationContainer apps = server.Install (nodes.Get(server1Position));
   apps.Start (Seconds (1.0));
   apps.Stop (Seconds (totalTime - 0.1));
 
-  UdpEchoClientHelper client (interfaces.GetAddress (server1Position), port);
-  client.SetAttribute ("MaxPackets", UintegerValue (maxPacketCount));
-  client.SetAttribute ("Interval", TimeValue (Seconds (interPacketInterval)));
-  client.SetAttribute ("PacketSize", UintegerValue (packetSize));
+   OnOffHelper onoff(
+      "ns3::UdpSocketFactory",
+      InetSocketAddress(interfaces.GetAddress(server1Position), port));
+
+  // Configure aqui a TAXA (ex: 5 Mbps)
+  onoff.SetAttribute("DataRate", DataRateValue(DataRate("5Mbps")));
+
+  // Tamanho do pacote (vai ser variado nos seus testes)
+  onoff.SetAttribute("PacketSize", UintegerValue(packetSize));
+
+  // Sempre ligado (geração contínua)
+  onoff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
+  onoff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
 
   uint16_t clientPosition = 0;
-  apps = client.Install (nodes.Get (clientPosition));
-  apps.Start (Seconds (2.0));
-  apps.Stop (Seconds (totalTime - 0.1));
+  ApplicationContainer clientApp = onoff.Install(nodes.Get(clientPosition));
+  clientApp.Start(Seconds(2.0));
+  clientApp.Stop(Seconds(totalTime - 0.1));
 }
+
