@@ -1040,8 +1040,13 @@ namespace ns3 {
         }
 
         else
-        {
-            nextHop = m_neighbors.BestNeighbor(dstPos, myPos);
+        {   
+            uint8_t flowId = GetNextFlowId();
+
+            
+            nextHop = m_neighbors.BestNeighbor(dstPos, myPos, flowId);
+
+            
         }
 
         if (nextHop != Ipv4Address::GetZero())
@@ -1084,5 +1089,14 @@ namespace ns3 {
             return LoopbackRoute(header, oif);     //in RouteInput the recovery-mode is called
         }
     }
-  }
+  
+    uint8_t
+    RoutingProtocol::GetNextFlowId ()
+    {
+        uint8_t id = currFlowId;
+        currFlowId = (currFlowId + 1) % 2;
+        return id;
+    }
+
+    }
 }

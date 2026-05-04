@@ -155,6 +155,10 @@ namespace ns3 {
         Ptr<LocationService> m_locationService;
 
         IpL4Protocol::DownTargetCallback m_downTarget;
+
+        __uint8_t currFlowId;
+
+        __uint8_t GetNextFlowId();
     };
   }
 }
