@@ -71,6 +71,51 @@ namespace ns3 {
       }
     };
 
+    struct FlowIdTag : public Tag
+    {
+    uint8_t m_flowId;
+
+    FlowIdTag()
+        : Tag(),
+        m_flowId(0)
+    {
+    }
+
+    static TypeId GetTypeId()
+    {
+        static TypeId tid =
+        TypeId("ns3::gpsr::FlowIdTag")
+            .SetParent<Tag>();
+        return tid;
+    }
+
+    virtual TypeId GetInstanceTypeId() const
+    {
+        return GetTypeId();
+    }
+
+    virtual uint32_t GetSerializedSize() const
+    {
+        return sizeof(uint8_t);
+    }
+
+    virtual void Serialize(TagBuffer i) const
+    {
+        i.WriteU8(m_flowId);
+    }
+
+    virtual void Deserialize(TagBuffer i)
+    {
+        m_flowId = i.ReadU8();
+    }
+
+    virtual void Print(std::ostream &os) const
+    {
+        os << "FlowIdTag: m_flowId = "
+        << static_cast<uint32_t>(m_flowId);
+    }
+    };
+
     /********** Miscellaneous constants **********/
 
     /// Maximum allowed jitter.
@@ -88,7 +133,8 @@ namespace ns3 {
         m_queue(64, Seconds(30)),
         HelloIntervalTimer(Timer::CANCEL_ON_DESTROY),
         m_neighbors(Seconds(2), 0),
-        PerimeterMode(false)
+        PerimeterMode(false),
+        currFlowId(0)
     {
     }
 
@@ -138,7 +184,6 @@ namespace ns3 {
         return tid;
     }
 
-
     RoutingProtocol::~RoutingProtocol()
     {
     }
@@ -161,7 +206,6 @@ namespace ns3 {
     {
       m_locationService = locationService;
     }
-
 
     bool RoutingProtocol::RouteInput(Ptr<const Packet> p, const Ipv4Header &header, Ptr<const NetDevice> idev,
                                       UnicastForwardCallback ucb, MulticastForwardCallback mcb,
@@ -495,7 +539,6 @@ namespace ns3 {
 
         mac->TraceConnectWithoutContext("TxErrHeader", m_neighbors.GetTxErrorCallback());
     }
-
 
     void
     RoutingProtocol::RecvGPSR(Ptr<Socket> socket)
@@ -1046,7 +1089,10 @@ namespace ns3 {
             
             nextHop = m_neighbors.BestNeighbor(dstPos, myPos, flowId);
 
-            
+            FlowIdTag tag;
+            tag.m_flowId = flowId;
+
+            p->AddPacketTag(tag);
         }
 
         if (nextHop != Ipv4Address::GetZero())
