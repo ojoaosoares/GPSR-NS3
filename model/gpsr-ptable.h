@@ -86,7 +86,7 @@ namespace ns3 {
          * \param nodePos the position of the node that has the packet
          * \return Ipv4Address of the next hop, Ipv4Address::GetZero() if no nighbour was found in greedy mode
          */
-        Ipv4Address BestNeighbor(Vector destPos, Vector nodePos);
+        Ipv4Address BestNeighbor(Vector destPos, Vector nodePos, uint8_t flowId = 2);
 
         bool IsInSearch(Ipv4Address id);
 

@@ -142,34 +142,79 @@ namespace ns3 {
      * \return Ipv4Address of the next hop, Ipv4Address::GetZero() if no nighbour was found in greedy mode
      */
     Ipv4Address 
-    PositionTable::BestNeighbor(Vector destPos, Vector nodePos)
+    PositionTable::BestNeighbor(Vector destPos, Vector nodePos, uint8_t flowId)
     {
         Purge();
-
-        double initialDistance = CalculateDistance(nodePos, destPos);
 
         if (m_table.empty())
         {
             NS_LOG_DEBUG("BestNeighbor table is empty; Position: " << destPos);
             return Ipv4Address::GetZero();
-        }     //if table is empty(no neighbours)
-
-        Ipv4Address bestFoundID = m_table.begin()->first;
-        double bestFoundDistance = CalculateDistance(m_table.begin()->second.first, destPos);
-        std::map<Ipv4Address, std::pair<Vector, Time> >::iterator i;
-        for (i = m_table.begin(); !(i == m_table.end()); i++)
-        {
-            if (bestFoundDistance > CalculateDistance(i->second.first, destPos))
-            {
-                bestFoundID = i->first;
-                bestFoundDistance = CalculateDistance(i->second.first, destPos);
-            }
         }
 
-        if (initialDistance > bestFoundDistance)
-          return bestFoundID;
-        else
-          return Ipv4Address::GetZero(); //so it enters Recovery-mode
+        if (flowId == 0)
+        {
+            Ipv4Address bestID = Ipv4Address::GetZero();
+            double minDiff = std::numeric_limits<double>::max();
+
+            for (auto i = m_table.begin(); i != m_table.end(); ++i)
+            {
+                double diff = i->second.first.x - nodePos.x;
+
+                if (diff > 0 && diff < minDiff)
+                {
+                    minDiff = diff;
+                    bestID = i->first;
+                }
+            }
+
+            return bestID;
+        }
+
+        if (flowId == 1)
+        {
+            Ipv4Address bestID = Ipv4Address::GetZero();
+            double minDiff = std::numeric_limits<double>::max();
+
+            for (auto i = m_table.begin(); i != m_table.end(); ++i)
+            {
+                double diff = nodePos.x - i->second.first.x;
+
+                if (diff > 0 && diff < minDiff)
+                {
+                    minDiff = diff;
+                    bestID = i->first;
+                }
+            }
+
+            return bestID;
+        }
+
+        if (flowId == 2)
+        {
+            double initialDistance = CalculateDistance(nodePos, destPos);
+
+            Ipv4Address bestFoundID = m_table.begin()->first;
+            double bestFoundDistance = CalculateDistance(m_table.begin()->second.first, destPos);
+
+            for (auto i = m_table.begin(); i != m_table.end(); ++i)
+            {
+                double dist = CalculateDistance(i->second.first, destPos);
+
+                if (bestFoundDistance > dist)
+                {
+                    bestFoundID = i->first;
+                    bestFoundDistance = dist;
+                }
+            }
+
+            if (initialDistance > bestFoundDistance)
+                return bestFoundID;
+            else
+                return Ipv4Address::GetZero(); // Recovery mode
+        }
+
+        return Ipv4Address::GetZero();
     }
 
     std::vector<std::pair<Ipv4Address, Vector>>
