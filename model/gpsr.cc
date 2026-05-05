@@ -29,13 +29,22 @@ namespace ns3 {
 
   namespace gpsr {
 
+    // Define packet states for DeferredRouteOutputTag
+    enum PacketState
+    {
+      PACKET_FROM_ROUTE_OUTPUT = 0, // no headers, only FlowIdTag
+      PACKET_FROM_FORWARDING = 1    // already has TypeHeader and PositionHeader
+    };
+
     struct DeferredRouteOutputTag : public Tag
     {
       /// Positive if output device is fixed in RouteOutput
       uint32_t m_isCallFromL3;
+      uint8_t m_packetState; // New member
 
       DeferredRouteOutputTag() : Tag(),
-                                  m_isCallFromL3(0)
+                                  m_isCallFromL3(0),
+                                  m_packetState(PACKET_FROM_ROUTE_OUTPUT) // Default to 0
       {
       }
 
@@ -52,22 +61,25 @@ namespace ns3 {
 
       uint32_t GetSerializedSize() const
       {
-        return sizeof(uint32_t);
+        return sizeof(uint32_t) + sizeof(uint8_t); // Updated size
       }
 
       void  Serialize(TagBuffer i) const
       {
         i.WriteU32(m_isCallFromL3);
+        i.WriteU8(m_packetState); // Serialize new member
       }
 
       void  Deserialize(TagBuffer i)
       {
         m_isCallFromL3 = i.ReadU32();
+        m_packetState = i.ReadU8(); // Deserialize new member
       }
 
       void  Print(std::ostream &os) const
       {
-        os << "DeferredRouteOutputTag: m_isCallFromL3 = " << m_isCallFromL3;
+        os << "DeferredRouteOutputTag: m_isCallFromL3 = " << m_isCallFromL3
+           << ", m_packetState = " << (uint32_t)m_packetState; // Print new member
       }
     };
 
@@ -188,9 +200,9 @@ namespace ns3 {
         DeferredRouteOutputTag tag; //FIXME since I have to check if it's in origin for it to work it means I'm not taking some tag out...
         if (p->PeekPacketTag(tag) && IsMyOwnAddress(origin))
         {
-            Ptr<Packet> packet = p->Copy(); //FIXME ja estou a abusar de tirar tags
-            packet->RemovePacketTag(tag);
-            DeferredRouteOutput(packet, header, ucb, ecb);
+            // The packet 'p' should already have the DeferredRouteOutputTag with the correct state.
+            // DeferredRouteOutput will make a copy and enqueue it.
+            DeferredRouteOutput(p, header, ucb, ecb);
             return true; 
         }
 
@@ -308,7 +320,6 @@ namespace ns3 {
         {
             nextHop = dst;
         }
-
         else
         {
           Vector dstPos = m_locationService->GetPosition(dst);
@@ -321,10 +332,6 @@ namespace ns3 {
 
           if (recovery)
           {
-              Vector Position;
-              Vector previousHop;
-              uint32_t updated;
-              
               while(m_queue.Dequeue(dst, queueEntry))
               {
                   Ptr<Packet> p = ConstCast<Packet>(queueEntry.GetPacket());
@@ -332,6 +339,7 @@ namespace ns3 {
                   Ipv4Header header = queueEntry.GetIpv4Header();
                   
                   TypeHeader tHeader(GPSRTYPE_POS);
+<<<<<<< Updated upstream
                   p->RemoveHeader(tHeader);
                   if (!tHeader.IsValid())
                   {
@@ -351,11 +359,53 @@ namespace ns3 {
                   // Here last positions is set to be the destination position because of the working of the right hand rule
                   PositionHeader posHeader(Position.x, Position.y,  updated, myPos.x, myPos.y,(uint8_t) 1, Position.x, Position.y); 
                   p->AddHeader(posHeader); //enters in recovery with last edge from Dst
+=======
+                  PositionHeader pHeader;
+                  Vector Position;
+                  uint32_t updated;
+                  uint8_t flowId = 0;
+
+                  // Read DeferredRouteOutputTag to determine packet state
+                  DeferredRouteOutputTag deferredTag;
+                  p->RemovePacketTag(deferredTag); // Remove the tag after reading
+
+                  if (deferredTag.m_packetState == PACKET_FROM_FORWARDING)
+                  {
+                      // Packet already has TypeHeader and PositionHeader
+                      p->RemoveHeader(tHeader);
+                      p->RemoveHeader(pHeader);
+                      Position.x = pHeader.GetDstPosx();
+                      Position.y = pHeader.GetDstPosy();
+                      updated = pHeader.GetUpdated();
+                      flowId = pHeader.GetFlowId();
+                  }
+                  else // PACKET_FROM_ROUTE_OUTPUT
+                  {
+                      // Packet has no headers, only FlowIdTag
+                      FlowIdTag flowIdTag;
+                      if (p->RemovePacketTag(flowIdTag))
+                      {
+                          flowId = flowIdTag.m_flowId;
+                      }
+                      Vector dstpos = m_locationService->GetPosition(dst);
+                      Position.x = dstpos.x;
+                      Position.y = dstpos.y;
+                      updated = (uint32_t) m_locationService->GetEntryUpdateTime(dst).GetSeconds();
+                      tHeader = TypeHeader(GPSRTYPE_POS);
+                  }
+                  
+                  // Here last positions is set to be the destination position because of the working of the right hand rule
+                  PositionHeader posHeader(Position.x, Position.y,  updated, myPos.x, myPos.y,(uint8_t) 1, Position.x, Position.y);
+                  posHeader.SetFlowId(flowId);
+                  p->AddHeader(posHeader);
+>>>>>>> Stashed changes
                   p->AddHeader(tHeader);
                   
-                  RecoveryMode(dst, p, ucb, header);
+                  if (!RecoveryMode(dst, p, ucb, header))
+                  {
+                      DeferredRouteOutput(p, header, ucb, queueEntry.GetErrorCallback());
+                  }
               }
-
               return true;
           }
         }
@@ -363,23 +413,71 @@ namespace ns3 {
         Ptr<Ipv4Route> route = Create<Ipv4Route>();
         route->SetDestination(dst);
         route->SetGateway(nextHop);
-
-        // FIXME: Does not work for multiple interfaces
         route->SetOutputDevice(m_ipv4->GetNetDevice(1));
 
         while(m_queue.Dequeue(dst, queueEntry))
         {
             Ptr<Packet> p = ConstCast<Packet>(queueEntry.GetPacket());
-
             UnicastForwardCallback ucb = queueEntry.GetUnicastForwardCallback();
             Ipv4Header header = queueEntry.GetIpv4Header();
+
+            TypeHeader tHeader(GPSRTYPE_POS);
+            PositionHeader pHeader;
+            uint8_t flowId = 0;
+            Vector dstPos;
+            uint32_t updatedTime;
+            
+            // Read DeferredRouteOutputTag to determine packet state
+            DeferredRouteOutputTag deferredTag;
+            p->RemovePacketTag(deferredTag); // Remove the tag after reading
+
+            if (deferredTag.m_packetState == PACKET_FROM_FORWARDING)
+            {
+                // Packet already has TypeHeader and PositionHeader
+                p->RemoveHeader(tHeader);
+                p->RemoveHeader(pHeader);
+
+                flowId = pHeader.GetFlowId();
+                Vector dstPosFromHeader(pHeader.GetDstPosx(), pHeader.GetDstPosy(), 0);
+                updatedTime = pHeader.GetUpdated();
+
+                Vector currentDstPos = m_locationService->GetPosition(dst);
+                uint32_t myUpdatedTime = (uint32_t) m_locationService->GetEntryUpdateTime(dst).GetSeconds();
+
+                if (myUpdatedTime > updatedTime)
+                {
+                    dstPos = currentDstPos;
+                    updatedTime = myUpdatedTime;
+                }
+                else
+                {
+                    dstPos = dstPosFromHeader;
+                }
+            }
+            else // PACKET_FROM_ROUTE_OUTPUT
+            {
+                // Packet has no headers, only FlowIdTag
+                FlowIdTag flowIdTag;
+                if (p->RemovePacketTag(flowIdTag))
+                {
+                    flowId = flowIdTag.m_flowId;
+                }
+
+                dstPos = m_locationService->GetPosition(dst);
+                updatedTime = (uint32_t) m_locationService->GetEntryUpdateTime(dst).GetSeconds();
+                tHeader = TypeHeader(GPSRTYPE_POS);
+            }
+
+            PositionHeader newPosHeader(dstPos.x, dstPos.y, updatedTime, 0, 0, 0, myPos.x, myPos.y);
+            newPosHeader.SetFlowId(flowId);
+            p->AddHeader(newPosHeader);
+            p->AddHeader(tHeader);
 
             if (header.GetSource() == Ipv4Address("102.102.102.102"))
             {
                 route->SetSource(m_ipv4->GetAddress(1, 0).GetLocal());
                 header.SetSource(m_ipv4->GetAddress(1, 0).GetLocal());
             }
-
             else
             {
                 route->SetSource(header.GetSource());
@@ -391,7 +489,7 @@ namespace ns3 {
         return true;
     }
 
-    void 
+    bool 
     RoutingProtocol::RecoveryMode(Ipv4Address dst, Ptr<Packet> p, UnicastForwardCallback ucb, Ipv4Header header)
     {
         Vector Position;
@@ -413,7 +511,7 @@ namespace ns3 {
         if (!tHeader.IsValid())
         {
             NS_LOG_DEBUG("GPSR message " << p->GetUid() << " with unknown type received: " << tHeader.Get() << ". Drop");
-            return;     // drop
+            return true;     // drop
         }
 
         if (tHeader.Get() == GPSRTYPE_POS)
@@ -436,7 +534,8 @@ namespace ns3 {
         Ipv4Address nextHop = m_neighbors.BestAngle(previousHop, myPos); 
         if (nextHop == Ipv4Address::GetZero())
         {
-            return;
+            
+            return false;
         }
 
         Ptr<Ipv4Route> route = Create<Ipv4Route>();
@@ -449,7 +548,7 @@ namespace ns3 {
 
         NS_LOG_LOGIC(route->GetOutputDevice() << " forwarding in Recovery to " << dst << " through " << route->GetGateway() << " packet " << p->GetUid());
         ucb(route, p, header);
-        return;
+        return true;
     }
 
     void
@@ -883,7 +982,7 @@ namespace ns3 {
         if (!tHeader.IsValid())
         {
             NS_LOG_DEBUG("GPSR message " << p->GetUid() << " with unknown type received: " << tHeader.Get() << ". Drop");
-            return false;     // drop
+            return true;     // drop
         }
 
         if (tHeader.Get() == GPSRTYPE_POS)
@@ -913,7 +1012,10 @@ namespace ns3 {
         {
           p->AddHeader(hdr);
           p->AddHeader(tHeader); //put headers back so that the RecoveryMode is compatible with Forwarding and SendFromQueue
-          RecoveryMode(dst, p, ucb, header);
+          if (!RecoveryMode(dst, p, ucb, header))
+          {
+              DeferredRouteOutput(p, header, ucb, ecb);
+          }
           return true;
         }
 
@@ -1022,6 +1124,7 @@ namespace ns3 {
             DeferredRouteOutputTag tag;
             if (!p->PeekPacketTag(tag))
             {
+                tag.m_packetState = PACKET_FROM_ROUTE_OUTPUT; // Explicitly set state
                 p->AddPacketTag(tag);
             }
             return LoopbackRoute(header, oif);
@@ -1077,8 +1180,10 @@ namespace ns3 {
         else
         {
             DeferredRouteOutputTag tag;
+
             if (!p->PeekPacketTag(tag))
             {
+                tag.m_packetState = PACKET_FROM_ROUTE_OUTPUT; // Explicitly set state
                 p->AddPacketTag(tag); 
             }
             return LoopbackRoute(header, oif);     //in RouteInput the recovery-mode is called
