@@ -142,7 +142,7 @@ namespace ns3 {
         //Calls SendPacketFromQueue and re-schedules
         void CheckQueue();
 
-        void RecoveryMode(Ipv4Address dst, Ptr<Packet> p, UnicastForwardCallback ucb, Ipv4Header header);
+        bool RecoveryMode(Ipv4Address dst, Ptr<Packet> p, UnicastForwardCallback ucb, Ipv4Header header);
         
         RequestQueue m_queue;
 

@@ -438,7 +438,7 @@ namespace ns3 {
         return true;
     }
 
-    void 
+    bool 
     RoutingProtocol::RecoveryMode(Ipv4Address dst, Ptr<Packet> p, UnicastForwardCallback ucb, Ipv4Header header)
     {
         Vector Position;
@@ -461,7 +461,7 @@ namespace ns3 {
         if (!tHeader.IsValid())
         {
             NS_LOG_DEBUG("GPSR message " << p->GetUid() << " with unknown type received: " << tHeader.Get() << ". Drop");
-            return;     // drop
+            return true;     // drop
         }
 
         if (tHeader.Get() == GPSRTYPE_POS)
@@ -485,8 +485,8 @@ namespace ns3 {
 
         Ipv4Address nextHop = m_neighbors.BestAngle(previousHop, myPos); 
         if (nextHop == Ipv4Address::GetZero())
-        {
-            return;
+        {   
+            return true;
         }
 
         Ptr<Ipv4Route> route = Create<Ipv4Route>();
@@ -499,7 +499,7 @@ namespace ns3 {
 
         NS_LOG_LOGIC(route->GetOutputDevice() << " forwarding in Recovery to " << dst << " through " << route->GetGateway() << " packet " << p->GetUid());
         ucb(route, p, header);
-        return;
+        return false;
     }
 
     void
@@ -970,7 +970,8 @@ namespace ns3 {
         {
           p->AddHeader(hdr);
           p->AddHeader(tHeader); //put headers back so that the RecoveryMode is compatible with Forwarding and SendFromQueue
-          RecoveryMode(dst, p, ucb, header);
+          if (RecoveryMode(dst, p, ucb, header))
+            DeferredRouteOutput(p, header, ucb, ecb);
           return true;
         }
 
@@ -1029,7 +1030,8 @@ namespace ns3 {
         p->AddHeader(tHeader);
         NS_LOG_LOGIC("Entering recovery-mode to " << dst << " in " << m_ipv4->GetAddress(1, 0).GetLocal());
 
-        RecoveryMode(dst, p, ucb, header);
+        if (RecoveryMode(dst, p, ucb, header))
+            DeferredRouteOutput(p, header, ucb, ecb);
         return true;
     }
 
