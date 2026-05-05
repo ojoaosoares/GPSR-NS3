@@ -193,7 +193,8 @@ namespace ns3 {
         m_recPosy(recPosy),
         m_inRec(inRec),
         m_lastPosx(lastPosx),
-        m_lastPosy(lastPosy)
+        m_lastPosy(lastPosy),
+        m_flowId(0)
     {
     }
 
@@ -218,7 +219,7 @@ namespace ns3 {
     uint32_t
     PositionHeader::GetSerializedSize() const
     {
-        return 53;
+        return 54;
     }
 
     void
@@ -232,6 +233,7 @@ namespace ns3 {
         i.WriteU8(m_inRec);
         i.WriteHtonU64(m_lastPosx);
         i.WriteHtonU64(m_lastPosy);
+        i.WriteU8(m_flowId);
     }
 
     uint32_t
@@ -246,6 +248,7 @@ namespace ns3 {
         m_inRec = i.ReadU8();
         m_lastPosx = i.ReadNtohU64();
         m_lastPosy = i.ReadNtohU64();
+        m_flowId = i.ReadU8();
 
         uint32_t dist = i.GetDistanceFrom(start);
         NS_ASSERT(dist == GetSerializedSize());
@@ -262,7 +265,8 @@ namespace ns3 {
           << " RecPositionY: " << m_recPosy
           << " inRec: " << m_inRec
           << " LastPositionX: " << m_lastPosx
-          << " LastPositionY: " << m_lastPosy;
+          << " LastPositionY: " << m_lastPosy
+          << " FlowID: " << (unsigned)m_flowId;
     }
 
     std::ostream &
@@ -275,7 +279,7 @@ namespace ns3 {
     bool
     PositionHeader::operator==(PositionHeader const & o) const
     {
-        return(m_dstPosx == o.m_dstPosx && m_dstPosy == o.m_dstPosy && m_updated == o.m_updated && m_recPosx == o.m_recPosx && m_recPosy == o.m_recPosy && m_inRec == o.m_inRec && m_lastPosx == o.m_lastPosx && m_lastPosy == o.m_lastPosy);
+        return(m_dstPosx == o.m_dstPosx && m_dstPosy == o.m_dstPosy && m_updated == o.m_updated && m_recPosx == o.m_recPosx && m_recPosy == o.m_recPosy && m_inRec == o.m_inRec && m_lastPosx == o.m_lastPosx && m_lastPosy == o.m_lastPosy && m_flowId == o.m_flowId);
     }
   }
 }

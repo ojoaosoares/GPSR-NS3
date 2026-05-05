@@ -183,6 +183,16 @@ namespace ns3 {
           return m_lastPosy;
         }
 
+        void SetFlowId(uint8_t id)
+        {
+            m_flowId = id;
+        }
+
+        uint8_t GetFlowId() const
+        {
+            return m_flowId;
+        }
+
 
         bool operator==(PositionHeader const & o) const;
       private:
@@ -194,6 +204,7 @@ namespace ns3 {
         uint8_t          m_inRec;          ///< 1 if in Recovery-mode, 0 otherwise
         uint64_t         m_lastPosx;          ///< x of position of previous hop
         uint64_t         m_lastPosy;          ///< y of position of previous hop
+        uint8_t          m_flowId;           ///< Flow ID
     };
 
     std::ostream & operator<<(std::ostream & os, PositionHeader const &);

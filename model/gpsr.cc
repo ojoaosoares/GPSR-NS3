@@ -383,17 +383,20 @@ namespace ns3 {
                       return false;     // drop
                   }
 
+                  uint8_t flowId = 0;
                   if (tHeader.Get() == GPSRTYPE_POS)
                   {
                       PositionHeader hdr;
                       p->RemoveHeader(hdr);
                       Position.x = hdr.GetDstPosx();
                       Position.y = hdr.GetDstPosy();
-                      updated = hdr.GetUpdated(); 
+                      updated = hdr.GetUpdated();
+                      flowId = hdr.GetFlowId();
                   }
                   
                   // Here last positions is set to be the destination position because of the working of the right hand rule
-                  PositionHeader posHeader(Position.x, Position.y,  updated, myPos.x, myPos.y,(uint8_t) 1, Position.x, Position.y); 
+                  PositionHeader posHeader(Position.x, Position.y,  updated, myPos.x, myPos.y,(uint8_t) 1, Position.x, Position.y);
+                  posHeader.SetFlowId(flowId);
                   p->AddHeader(posHeader); //enters in recovery with last edge from Dst
                   p->AddHeader(tHeader);
                   
@@ -445,6 +448,7 @@ namespace ns3 {
         uint64_t positionY;
         Vector myPos;
         Vector recPos;
+        uint8_t flowId = 0;
 
         Ptr<MobilityModel> MM = m_ipv4->GetObject<MobilityModel>();
         positionX = MM->GetPosition().x;
@@ -471,9 +475,11 @@ namespace ns3 {
             recPos.y = hdr.GetRecPosy();
             previousHop.x = hdr.GetLastPosx();
             previousHop.y = hdr.GetLastPosy();
+            flowId = hdr.GetFlowId();
         }
 
         PositionHeader posHeader(Position.x, Position.y,  updated, recPos.x, recPos.y,(uint8_t) 1, myPos.x, myPos.y); 
+        posHeader.SetFlowId(flowId);
         p->AddHeader(posHeader);
         p->AddHeader(tHeader);
 
@@ -867,6 +873,13 @@ namespace ns3 {
     RoutingProtocol::AddHeaders(Ptr<Packet> p, Ipv4Address source, Ipv4Address destination, uint8_t protocol, Ptr<Ipv4Route> route)
     {
         NS_LOG_FUNCTION(this << " source " << source << " destination " << destination);
+
+        FlowIdTag flowIdTag;
+        uint8_t flowId = 0;
+        if (p->RemovePacketTag(flowIdTag))
+        {
+            flowId = flowIdTag.m_flowId;
+        }
       
         Vector myPos;
         Ptr<MobilityModel> MM = m_ipv4->GetObject<MobilityModel>();
@@ -897,6 +910,7 @@ namespace ns3 {
         }
 
         PositionHeader posHeader(positionX, positionY,  hdrTime,(uint64_t) 0,(uint64_t) 0,(uint8_t) 0, myPos.x, myPos.y); 
+        posHeader.SetFlowId(flowId);
         p->AddHeader(posHeader);
         TypeHeader tHeader(GPSRTYPE_POS);
         p->AddHeader(tHeader);
@@ -983,6 +997,7 @@ namespace ns3 {
         if (nextHop != Ipv4Address::GetZero())
         {
             PositionHeader posHeader(Position.x, Position.y,  updated,(uint64_t) 0,(uint64_t) 0,(uint8_t) 0, myPos.x, myPos.y);
+            posHeader.SetFlowId(hdr.GetFlowId());
             p->AddHeader(posHeader);
             p->AddHeader(tHeader);
             
@@ -1077,6 +1092,12 @@ namespace ns3 {
 
         Ipv4Address nextHop;
 
+        uint8_t flowId = GetNextFlowId();
+        FlowIdTag tag;
+        tag.m_flowId = flowId;
+
+        p->AddPacketTag(tag);
+
         if (m_neighbors.isNeighbour(dst))
         {
             nextHop = dst;
@@ -1084,15 +1105,7 @@ namespace ns3 {
 
         else
         {   
-            uint8_t flowId = GetNextFlowId();
-
-            
             nextHop = m_neighbors.BestNeighbor(dstPos, myPos, flowId);
-
-            FlowIdTag tag;
-            tag.m_flowId = flowId;
-
-            p->AddPacketTag(tag);
         }
 
         if (nextHop != Ipv4Address::GetZero())
