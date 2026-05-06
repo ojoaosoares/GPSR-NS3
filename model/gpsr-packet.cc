@@ -219,7 +219,7 @@ namespace ns3 {
     uint32_t
     PositionHeader::GetSerializedSize() const
     {
-        return 54;
+        return 53;
     }
 
     void
@@ -230,10 +230,12 @@ namespace ns3 {
         i.WriteHtonU32(m_updated);
         i.WriteHtonU64(m_recPosx);
         i.WriteHtonU64(m_recPosy);
-        i.WriteU8(m_inRec);
+        uint8_t packed = 0;
+        packed |= (m_inRec & 0x01);
+        packed |= ((m_flowId & 0x01) << 1);
+        i.WriteU8(packed);
         i.WriteHtonU64(m_lastPosx);
         i.WriteHtonU64(m_lastPosy);
-        i.WriteU8(m_flowId);
     }
 
     uint32_t
@@ -245,10 +247,11 @@ namespace ns3 {
         m_updated = i.ReadNtohU32();
         m_recPosx = i.ReadNtohU64();
         m_recPosy = i.ReadNtohU64();
-        m_inRec = i.ReadU8();
+        uint8_t packed = i.ReadU8();
+        m_inRec = packed & 0x01;
+        m_flowId = (packed >> 1) & 0x01;
         m_lastPosx = i.ReadNtohU64();
         m_lastPosy = i.ReadNtohU64();
-        m_flowId = i.ReadU8();
 
         uint32_t dist = i.GetDistanceFrom(start);
         NS_ASSERT(dist == GetSerializedSize());
