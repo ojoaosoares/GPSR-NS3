@@ -110,7 +110,8 @@ namespace ns3 {
     //-----------------------------------------------------------------------------
     HelloHeader::HelloHeader(uint64_t originPosx, uint64_t originPosy)
       : m_originPosx(originPosx),
-        m_originPosy(originPosy)
+        m_originPosy(originPosy),
+        m_flowParticipation(2)
     {
     }
 
@@ -135,7 +136,7 @@ namespace ns3 {
     uint32_t
     HelloHeader::GetSerializedSize() const
     {
-        return 16;
+        return 17;
     }
 
     void
@@ -145,6 +146,7 @@ namespace ns3 {
 
         i.WriteHtonU64(m_originPosx);
         i.WriteHtonU64(m_originPosy);
+        i.WriteU8(m_flowParticipation);
     }
 
     uint32_t
@@ -154,6 +156,7 @@ namespace ns3 {
 
         m_originPosx = i.ReadNtohU64();
         m_originPosy = i.ReadNtohU64();
+        m_flowParticipation = i.ReadU8();
 
         NS_LOG_DEBUG("Deserialize X " << m_originPosx << " Y " << m_originPosy);
 
@@ -166,7 +169,8 @@ namespace ns3 {
     HelloHeader::Print(std::ostream &os) const
     {
         os << " PositionX: " << m_originPosx
-          << " PositionY: " << m_originPosy;
+          << " PositionY: " << m_originPosy
+          << " FlowParticipation: " << (int)m_flowParticipation;
     }
 
     std::ostream &
@@ -179,7 +183,7 @@ namespace ns3 {
     bool
     HelloHeader::operator==(HelloHeader const & o) const
     {
-        return(m_originPosx == o.m_originPosx && m_originPosy == o.m_originPosy);
+        return(m_originPosx == o.m_originPosx && m_originPosy == o.m_originPosy && m_flowParticipation == o.m_flowParticipation);
     }
 
     //-----------------------------------------------------------------------------

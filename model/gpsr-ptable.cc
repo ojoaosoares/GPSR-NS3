@@ -32,17 +32,17 @@ namespace ns3 {
      * \brief Adds entry in position table
      */
     void 
-    PositionTable::AddEntry(Ipv4Address id, Vector position)
+    PositionTable::AddEntry(Ipv4Address id, Vector position, uint8_t flowParticipation)
     {
         std::map<Ipv4Address, std::pair<Vector, Time> >::iterator i = m_table.find(id);
         if (i != m_table.end() || id.IsEqual(i->first))
         {
             m_table.erase(id);
-            m_table.insert(std::make_pair(id, std::make_pair(position, Simulator::Now())));
-            return;
+            m_flowParticipation.erase(id);
         }
         
         m_table.insert(std::make_pair(id, std::make_pair(position, Simulator::Now())));
+        m_flowParticipation.insert(std::make_pair(id, flowParticipation));
     }
 
     /**
@@ -51,6 +51,7 @@ namespace ns3 {
     void PositionTable::DeleteEntry(Ipv4Address id)
     {
         m_table.erase(id);
+        m_flowParticipation.erase(id);
     }
 
     /**
@@ -123,6 +124,7 @@ namespace ns3 {
         for (std::list<Ipv4Address>::iterator it = toErase.begin(); it != end; ++it)
         {
             m_table.erase(*it);
+            m_flowParticipation.erase(*it);
         }
     }
 
@@ -133,6 +135,7 @@ namespace ns3 {
     PositionTable::Clear()
     {
         m_table.clear();
+        m_flowParticipation.clear();
     }
 
     /**

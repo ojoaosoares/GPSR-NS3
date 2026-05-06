@@ -57,7 +57,7 @@ namespace ns3 {
         virtual void NotifyRemoveAddress(uint32_t interface, Ipv4InterfaceAddress address);
         virtual void SetIpv4(Ptr<Ipv4> ipv4);
         virtual void RecvGPSR(Ptr<Socket> socket);
-        virtual void UpdateRouteToNeighbor(Ipv4Address sender,  Vector Pos);
+        virtual void UpdateRouteToNeighbor(Ipv4Address sender,  Vector Pos, uint8_t flowParticipation);
         virtual void SendHello();
         virtual bool IsMyOwnAddress(Ipv4Address src);
 
@@ -109,6 +109,7 @@ namespace ns3 {
 
         uint16_t m_rreqCount;
         Time HelloInterval;
+        Time FlowParticipationResetInterval;
 
         void SetDownTarget(IpL4Protocol::DownTargetCallback callback);
         IpL4Protocol::DownTargetCallback GetDownTarget(void) const;
@@ -142,12 +143,15 @@ namespace ns3 {
         //Calls SendPacketFromQueue and re-schedules
         void CheckQueue();
 
+        void ResetFlowParticipation();
+
         bool RecoveryMode(Ipv4Address dst, Ptr<Packet> p, UnicastForwardCallback ucb, Ipv4Header header);
         
         RequestQueue m_queue;
 
         Timer HelloIntervalTimer;
         Timer CheckQueueTimer;
+        Timer FlowParticipationResetTimer;
         uint8_t LocationServiceName;
         PositionTable m_neighbors;
         bool PerimeterMode;
@@ -157,6 +161,7 @@ namespace ns3 {
         IpL4Protocol::DownTargetCallback m_downTarget;
 
         __uint8_t currFlowId;
+        uint8_t m_currentFlowParticipation;
 
         __uint8_t GetNextFlowId();
     };

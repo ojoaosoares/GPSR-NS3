@@ -41,7 +41,7 @@ namespace ns3 {
         /**
          * \brief Adds entry in position table
          */
-        void AddEntry(Ipv4Address id, Vector position);
+        void AddEntry(Ipv4Address id, Vector position, uint8_t flowParticipation);
 
         /**
          * \brief Deletes entry in position table
@@ -128,6 +128,7 @@ namespace ns3 {
       private:
         Time m_entryLifeTime;
         std::map<Ipv4Address, std::pair<Vector, Time> > m_table;
+        std::map<Ipv4Address, uint8_t> m_flowParticipation;
 
         std::vector<std::pair<Ipv4Address, Vector>> GetNeighbors();
         std::vector<std::pair<Ipv4Address, Vector>> GetGabrielNeighbors(const Vector& nodePos);

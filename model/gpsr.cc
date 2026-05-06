@@ -132,9 +132,11 @@ namespace ns3 {
     RoutingProtocol::RoutingProtocol() :
         m_queue(64, Seconds(30)),
         HelloIntervalTimer(Timer::CANCEL_ON_DESTROY),
+        FlowParticipationResetTimer(Timer::CANCEL_ON_DESTROY),
         m_neighbors(Seconds(2), 0),
         PerimeterMode(false),
-        currFlowId(0)
+        currFlowId(0),
+        m_currentFlowParticipation(2)
     {
     }
 
@@ -180,7 +182,11 @@ namespace ns3 {
             .AddAttribute("PerimeterMode", "Indicates if PerimeterMode is enabled.",
                         BooleanValue(false),
                         MakeBooleanAccessor(&RoutingProtocol::PerimeterMode),
-                        MakeBooleanChecker());
+                        MakeBooleanChecker())
+            .AddAttribute("FlowParticipationResetInterval", "Flow Participation Reset Interval.",
+                        TimeValue(Seconds(10)),
+                        MakeTimeAccessor(&RoutingProtocol::FlowParticipationResetInterval),
+                        MakeTimeChecker());
         return tid;
     }
 
@@ -566,16 +572,17 @@ namespace ns3 {
         Vector Position;
         Position.x = hdr.GetOriginPosx();
         Position.y = hdr.GetOriginPosy();
+        uint8_t flowParticipation = hdr.GetFlowParticipation();
         InetSocketAddress inetSourceAddr = InetSocketAddress::ConvertFrom(sourceAddress);
         Ipv4Address sender = inetSourceAddr.GetIpv4();
 
-        UpdateRouteToNeighbor(sender, Position);
+        UpdateRouteToNeighbor(sender, Position, flowParticipation);
     }
 
     void
-    RoutingProtocol::UpdateRouteToNeighbor(Ipv4Address sender, Vector Pos)
+    RoutingProtocol::UpdateRouteToNeighbor(Ipv4Address sender, Vector Pos, uint8_t flowParticipation)
     {
-        m_neighbors.AddEntry(sender, Pos);
+        m_neighbors.AddEntry(sender, Pos, flowParticipation);
     }
 
     void
@@ -767,6 +774,7 @@ namespace ns3 {
             Ptr<Socket> socket = j->first;
             Ipv4InterfaceAddress iface = j->second;
             HelloHeader helloHeader(((uint64_t) positionX),((uint64_t) positionY));
+            helloHeader.SetFlowParticipation(m_currentFlowParticipation);
 
             Ptr<Packet> packet = Create<Packet>();
             packet->AddHeader(helloHeader);
@@ -825,6 +833,8 @@ namespace ns3 {
             NS_LOG_UNCOND("RLS not yet implemented");
             break;
         }
+        FlowParticipationResetTimer.SetFunction(&RoutingProtocol::ResetFlowParticipation, this);
+        FlowParticipationResetTimer.Schedule(FlowParticipationResetInterval);
     }
 
     Ptr<Ipv4Route>
@@ -885,18 +895,6 @@ namespace ns3 {
         Ptr<MobilityModel> MM = m_ipv4->GetObject<MobilityModel>();
         myPos.x = MM->GetPosition().x;
         myPos.y = MM->GetPosition().y;  
-      
-        Ipv4Address nextHop;
-
-        if (m_neighbors.isNeighbour(destination))
-        {
-            nextHop = destination;
-        }
-
-        else
-        {
-            nextHop = m_neighbors.BestNeighbor(m_locationService->GetPosition(destination), myPos);
-        }
 
         uint16_t positionX = 0;
         uint16_t positionY = 0;
@@ -952,6 +950,11 @@ namespace ns3 {
             RecPosition.x = hdr.GetRecPosx();
             RecPosition.y = hdr.GetRecPosy();
             inRec = hdr.GetInRec();
+
+            if (m_currentFlowParticipation == 2)
+            {
+                m_currentFlowParticipation = hdr.GetFlowId();
+            }
         }
 
         Vector myPos;
@@ -992,7 +995,7 @@ namespace ns3 {
 
         else
         {
-            nextHop = m_neighbors.BestNeighbor(Position, myPos);
+            nextHop = m_neighbors.BestNeighbor(Position, myPos, hdr.GetFlowId());
         }
 
         if (nextHop != Ipv4Address::GetZero())
@@ -1157,6 +1160,13 @@ namespace ns3 {
         uint8_t id = currFlowId;
         currFlowId = (currFlowId + 1) % 2;
         return id;
+    }
+
+    void
+    RoutingProtocol::ResetFlowParticipation()
+    {
+        m_currentFlowParticipation = 2;
+        FlowParticipationResetTimer.Schedule(FlowParticipationResetInterval);
     }
 
     }

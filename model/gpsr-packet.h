@@ -90,6 +90,14 @@ namespace ns3 {
         {
           return m_originPosy;
         }
+        void SetFlowParticipation(uint8_t fp)
+        {
+          m_flowParticipation = fp;
+        }
+        uint8_t GetFlowParticipation() const
+        {
+          return m_flowParticipation;
+        }
         //\}
 
 
@@ -97,6 +105,7 @@ namespace ns3 {
       private:
         uint64_t         m_originPosx;          ///< Originator Position x
         uint64_t         m_originPosy;          ///< Originator Position x
+        uint8_t          m_flowParticipation;   ///< Flow Participation
     };
 
     std::ostream & operator<<(std::ostream & os, HelloHeader const &);
