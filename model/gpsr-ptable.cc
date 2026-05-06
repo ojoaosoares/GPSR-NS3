@@ -151,75 +151,135 @@ namespace ns3 {
 
         if (m_table.empty())
         {
-            NS_LOG_DEBUG("BestNeighbor table is empty; Position: " << destPos);
             return Ipv4Address::GetZero();
         }
 
-        if (flowId == 0)
+        double initialDistance = CalculateDistance(nodePos, destPos);
+
+        std::list<Ipv4Address> candidates;
+
+        for (auto const& it : m_table)
         {
-            Ipv4Address bestID = Ipv4Address::GetZero();
-            double minDiff = std::numeric_limits<double>::max();
+            Ipv4Address ip = it.first;
+            Vector neighborPos = it.second.first;
 
-            for (auto i = m_table.begin(); i != m_table.end(); ++i)
+            bool valid = false;
+
+            if (flowId == 0)
             {
-                double diff = i->second.first.x - nodePos.x;
-
-                if (diff > 0 && diff < minDiff)
-                {
-                    minDiff = diff;
-                    bestID = i->first;
-                }
+                valid = (neighborPos.x - nodePos.x > 0);
             }
-
-            return bestID;
-        }
-
-        if (flowId == 1)
-        {
-            Ipv4Address bestID = Ipv4Address::GetZero();
-            double minDiff = std::numeric_limits<double>::max();
-
-            for (auto i = m_table.begin(); i != m_table.end(); ++i)
+            else if (flowId == 1)
             {
-                double diff = nodePos.x - i->second.first.x;
-
-                if (diff > 0 && diff < minDiff)
-                {
-                    minDiff = diff;
-                    bestID = i->first;
-                }
+                valid = (nodePos.x - neighborPos.x > 0);
             }
-
-            return bestID;
-        }
-
-        if (flowId == 2)
-        {
-            double initialDistance = CalculateDistance(nodePos, destPos);
-
-            Ipv4Address bestFoundID = m_table.begin()->first;
-            double bestFoundDistance = CalculateDistance(m_table.begin()->second.first, destPos);
-
-            for (auto i = m_table.begin(); i != m_table.end(); ++i)
-            {
-                double dist = CalculateDistance(i->second.first, destPos);
-
-                if (bestFoundDistance > dist)
-                {
-                    bestFoundID = i->first;
-                    bestFoundDistance = dist;
-                }
-            }
-
-            if (initialDistance > bestFoundDistance)
-                return bestFoundID;
             else
-                return Ipv4Address::GetZero(); // Recovery mode
+            {
+                valid = (CalculateDistance(neighborPos, destPos) < initialDistance);
+            }
+
+            if (valid)
+            {
+                candidates.push_back(ip);
+            }
+        }
+
+        std::list<Ipv4Address> groupPreferred;
+        std::list<Ipv4Address> groupOpposite;
+
+        for (Ipv4Address addr : candidates)
+        {
+            uint8_t neighborFlow = m_flowParticipation.at(addr);
+
+            if (neighborFlow == 2 || neighborFlow == flowId)
+            {
+                groupPreferred.push_back(addr);
+            }
+            else
+            {
+                groupOpposite.push_back(addr);
+            }
+        }
+
+        auto SelectBest = [&](std::list<Ipv4Address>& group) -> Ipv4Address
+        {
+            if (group.empty())
+                return Ipv4Address::GetZero();
+
+            Ipv4Address best = Ipv4Address::GetZero();
+
+            if (flowId == 0 || flowId == 1)
+            {
+                double bestAdvance = -std::numeric_limits<double>::max();
+
+                for (Ipv4Address addr : group)
+                {
+                    Vector neighborPos = m_table.at(addr).first;
+                    double advance = 0;
+
+                    if (flowId == 0)
+                        advance = neighborPos.x - nodePos.x;
+                    else
+                        advance = nodePos.x - neighborPos.x;
+
+                    if (advance > bestAdvance)
+                    {
+                        bestAdvance = advance;
+                        best = addr;
+                    }
+                }
+            }
+            else
+            {
+                double bestDistance = std::numeric_limits<double>::max();
+
+                for (Ipv4Address addr : group)
+                {
+                    Vector neighborPos = m_table.at(addr).first;
+                    double dist = CalculateDistance(neighborPos, destPos);
+
+                    if (dist < bestDistance)
+                    {
+                        bestDistance = dist;
+                        best = addr;
+                    }
+                }
+            }
+
+            return best;
+        };
+
+        Ipv4Address bestHop = SelectBest(groupPreferred);
+        if (bestHop != Ipv4Address::GetZero())
+            return bestHop;
+
+        bestHop = SelectBest(groupOpposite);
+        if (bestHop != Ipv4Address::GetZero())
+            return bestHop;
+
+        if (flowId != 2)
+        {
+            double bestDistance = std::numeric_limits<double>::max();
+            Ipv4Address greedyFallback = Ipv4Address::GetZero();
+
+            for (auto const& it : m_table)
+            {
+                Vector neighborPos = it.second.first;
+                double dist = CalculateDistance(neighborPos, destPos);
+
+                if (dist < bestDistance)
+                {
+                    bestDistance = dist;
+                    greedyFallback = it.first;
+                }
+            }
+
+            return greedyFallback;
         }
 
         return Ipv4Address::GetZero();
     }
-
+    
     std::vector<std::pair<Ipv4Address, Vector>>
     PositionTable::GetNeighbors()
     {
