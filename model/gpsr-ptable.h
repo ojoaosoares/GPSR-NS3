@@ -32,6 +32,11 @@ namespace ns3 {
         PositionTable(Time entryTime, uint8_t graphType);
 
         /**
+         * \brief Sets a callback to notify when a neighbor is removed
+         */
+        void SetInvalidateCallback(Callback<void, Ipv4Address> invalidateCallback);
+
+        /**
          * \brief Gets the last time the entry was updated
          * \param id Ipv4Address to get time of update from
          * \return Time of last update to the position
@@ -138,6 +143,8 @@ namespace ns3 {
         double GetAngle(Vector centrePos, Vector refPos, Vector node);
         // TX error callback
         Callback<void, WifiMacHeader const &> m_txErrorCallback;
+        // Invalidation callback
+        Callback<void, Ipv4Address> m_invalidateCallback;
         // Process layer 2 TX error notification
         void ProcessTxError(WifiMacHeader const&);
         uint8_t graphType; //0 - NONE, 1 - Gabriel, 2 - RNG

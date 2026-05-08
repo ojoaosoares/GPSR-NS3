@@ -9,6 +9,7 @@
 def build(bld):
     module = bld.create_ns3_module('gpsr', ['location-service', 'internet', 'wifi', 'applications', 'mesh', 'point-to-point', 'virtual-net-device'])
     module.source = [
+        'model/gpsr-ftable.cc',
         'model/gpsr-ptable.cc',
         'model/gpsr-rqueue.cc',
         'model/gpsr-packet.cc',
@@ -19,6 +20,7 @@ def build(bld):
     headers = bld(features='ns3header')
     headers.module = 'gpsr'
     headers.source = [
+        'model/gpsr-ftable.h',
         'model/gpsr-ptable.h',
         'model/gpsr-rqueue.h',
         'model/gpsr-packet.h',

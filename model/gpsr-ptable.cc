@@ -144,143 +144,88 @@ namespace ns3 {
      * \param nodePos the position of the node that has the packet
      * \return Ipv4Address of the next hop, Ipv4Address::GetZero() if no nighbour was found in greedy mode
      */
-    Ipv4Address 
-    PositionTable::BestNeighbor(Vector destPos, Vector nodePos, uint8_t flowId)
-    {
-        Purge();
+Ipv4Address 
+PositionTable::BestNeighbor(Vector destPos, Vector nodePos, uint8_t flowId)
+{
+    Purge();
 
-        if (m_table.empty())
-        {
-            return Ipv4Address::GetZero();
-        }
-
-        double initialDistance = CalculateDistance(nodePos, destPos);
-
-        std::list<Ipv4Address> candidates;
-
-        for (auto const& it : m_table)
-        {
-            Ipv4Address ip = it.first;
-            Vector neighborPos = it.second.first;
-
-            bool valid = false;
-
-            if (flowId == 0)
-            {
-                valid = (neighborPos.x - nodePos.x > 0);
-            }
-            else if (flowId == 1)
-            {
-                valid = (nodePos.x - neighborPos.x > 0);
-            }
-            else
-            {
-                valid = (CalculateDistance(neighborPos, destPos) < initialDistance);
-            }
-
-            if (valid)
-            {
-                candidates.push_back(ip);
-            }
-        }
-
-        std::list<Ipv4Address> groupPreferred;
-        std::list<Ipv4Address> groupOpposite;
-
-        for (Ipv4Address addr : candidates)
-        {
-            uint8_t neighborFlow = m_flowParticipation.at(addr);
-
-            if (neighborFlow == 2 || neighborFlow == flowId)
-            {
-                groupPreferred.push_back(addr);
-            }
-            else
-            {
-                groupOpposite.push_back(addr);
-            }
-        }
-
-        auto SelectBest = [&](std::list<Ipv4Address>& group) -> Ipv4Address
-        {
-            if (group.empty())
-                return Ipv4Address::GetZero();
-
-            Ipv4Address best = Ipv4Address::GetZero();
-
-            if (flowId == 0 || flowId == 1)
-            {
-                double bestAdvance = -std::numeric_limits<double>::max();
-
-                for (Ipv4Address addr : group)
-                {
-                    Vector neighborPos = m_table.at(addr).first;
-                    double advance = 0;
-
-                    if (flowId == 0)
-                        advance = neighborPos.x - nodePos.x;
-                    else
-                        advance = nodePos.x - neighborPos.x;
-
-                    if (advance > bestAdvance)
-                    {
-                        bestAdvance = advance;
-                        best = addr;
-                    }
-                }
-            }
-            else
-            {
-                double bestDistance = std::numeric_limits<double>::max();
-
-                for (Ipv4Address addr : group)
-                {
-                    Vector neighborPos = m_table.at(addr).first;
-                    double dist = CalculateDistance(neighborPos, destPos);
-
-                    if (dist < bestDistance)
-                    {
-                        bestDistance = dist;
-                        best = addr;
-                    }
-                }
-            }
-
-            return best;
-        };
-
-        Ipv4Address bestHop = SelectBest(groupPreferred);
-        if (bestHop != Ipv4Address::GetZero())
-            return bestHop;
-
-        bestHop = SelectBest(groupOpposite);
-        if (bestHop != Ipv4Address::GetZero())
-            return bestHop;
-
-        if (flowId != 2)
-        {
-            double bestDistance = std::numeric_limits<double>::max();
-            Ipv4Address greedyFallback = Ipv4Address::GetZero();
-
-            for (auto const& it : m_table)
-            {
-                Vector neighborPos = it.second.first;
-                double dist = CalculateDistance(neighborPos, destPos);
-
-                if (dist < bestDistance)
-                {
-                    bestDistance = dist;
-                    greedyFallback = it.first;
-                }
-            }
-
-            return greedyFallback;
-        }
-
+    if (m_table.empty())
         return Ipv4Address::GetZero();
+
+    double selfDist = CalculateDistance(nodePos, destPos);
+
+    Ipv4Address best = Ipv4Address::GetZero();
+    double bestScore = -std::numeric_limits<double>::max();
+
+    Vector toDest;
+    toDest.x = destPos.x - nodePos.x;
+    toDest.y = destPos.y - nodePos.y;
+    toDest.z = 0;
+
+    for (auto const& it : m_table)
+    {
+        Ipv4Address addr = it.first;
+        Vector neighborPos = it.second.first;
+
+        double neighborDist = CalculateDistance(neighborPos, destPos);
+
+        if (neighborDist >= selfDist)
+            continue;
+
+        double progress = selfDist - neighborDist;
+
+        uint8_t neighborFlow = m_flowParticipation.at(addr);
+
+        double occupationBonus = 0.0;
+        if (neighborFlow == 2)
+            occupationBonus = 2.0;
+        else if (neighborFlow == flowId)
+            occupationBonus = 1.5;
+        else
+            occupationBonus = -2.0;
+
+        Vector toNeighbor;
+        toNeighbor.x = neighborPos.x - nodePos.x;
+        toNeighbor.y = neighborPos.y - nodePos.y;
+        toNeighbor.z = 0;
+
+        double cross = toDest.x * toNeighbor.y - toDest.y * toNeighbor.x;
+
+        double sideBonus = 0.0;
+        if (flowId == 0 && cross > 0)
+            sideBonus = 1.0;
+        else if (flowId == 1 && cross < 0)
+            sideBonus = 1.0;
+
+        double score = progress * 10.0 + occupationBonus * 3.0 + sideBonus;
+
+        if (score > bestScore)
+        {
+            bestScore = score;
+            best = addr;
+        }
     }
-    
-    std::vector<std::pair<Ipv4Address, Vector>>
+
+    if (best != Ipv4Address::GetZero())
+        return best;
+
+    double minDist = std::numeric_limits<double>::max();
+
+    for (auto const& it : m_table)
+    {
+        Vector neighborPos = it.second.first;
+        double d = CalculateDistance(neighborPos, destPos);
+
+        if (d < minDist)
+        {
+            minDist = d;
+            best = it.first;
+        }
+    }
+
+    return best;
+}
+std::vector<std::pair<Ipv4Address, Vector>>
     PositionTable::GetNeighbors()
     {
         std::vector<Ipv4Address> toErase;

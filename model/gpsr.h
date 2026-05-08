@@ -6,6 +6,7 @@
 #define GPSR_H
 
 #include "gpsr-ptable.h"
+#include "gpsr-ftable.h"
 #include "ns3/node.h"
 #include "gpsr-packet.h"
 #include "ns3/ipv4-routing-protocol.h"
@@ -119,6 +120,9 @@ namespace ns3 {
           return;
         }
 
+        // Callback to invalidate flow table entries when a neighbor is lost
+        void InvalidateFlowTableEntries(Ipv4Address lostNeighbor);
+
       private:
         /// Start protocol operation
         void Start();
@@ -164,6 +168,15 @@ namespace ns3 {
         uint8_t m_currentFlowParticipation;
 
         __uint8_t GetNextFlowId();
+
+        // Flow Cache members
+        bool m_useFlowCache;
+        void SetCacheTimeout(Time timeout) {
+          m_cacheTimeout = timeout;
+          m_flowTable.SetCacheTimeout(timeout);
+        }
+        Time m_cacheTimeout;
+        FlowTable m_flowTable;
     };
   }
 }
