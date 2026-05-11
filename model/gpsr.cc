@@ -138,9 +138,9 @@ namespace ns3 {
         currFlowId(0),
         m_currentFlowParticipation(2),
         m_useFlowCache(true),
-        m_cacheTimeout(Seconds(1)),
         m_flowTable(m_cacheTimeout)
     {
+        SetCacheTimeout(Seconds(5));
         // m_neighbors.SetInvalidateCallback(MakeCallback(&RoutingProtocol::InvalidateFlowTableEntries, this));
     }
 
@@ -982,36 +982,6 @@ namespace ns3 {
             }
         }
 
-        // FLOW CACHE LOGIC: LOOKUP
-        if (m_useFlowCache)
-        {
-            FlowKey key = {origin, dst, flowId};
-            FlowValue value;
-            if (m_flowTable.Get(key, value))
-            {
-                // CACHE HIT
-                NS_LOG_LOGIC("[CACHE HIT] Forwarding to " << dst << " through " << value.nextHop);
-                Ptr<Ipv4Route> route = Create<Ipv4Route>();
-                route->SetDestination(dst);
-                if (header.GetSource() == Ipv4Address("102.102.102.102"))
-                {
-                    route->SetSource(m_ipv4->GetAddress(1, 0).GetLocal());
-                }
-                else
-                {
-                    route->SetSource(header.GetSource());
-                }
-
-                route->SetDestination(dst);
-                route->SetGateway(value.nextHop);
-                // Do NOT set OutputDevice, let IP stack decide from gateway
-                
-                ucb(route, p, header);
-                return true;
-            }
-        }
-
-        // CACHE MISS
         Vector myPos;
         Ptr<MobilityModel> MM = m_ipv4->GetObject<MobilityModel>();
         myPos.x = MM->GetPosition().x;
@@ -1050,6 +1020,46 @@ namespace ns3 {
 
         else
         {
+
+            // FLOW CACHE LOGIC: LOOKUP
+            if (m_useFlowCache)
+            {
+                FlowKey key = {origin, dst, flowId};
+                FlowValue value;
+                if (m_flowTable.Get(key, value))
+                {
+                    if (m_neighbors.isNeighbour(value.nextHop))
+                    {
+
+                        PositionHeader posHeader(Position.x, Position.y,  updated,(uint64_t) 0,(uint64_t) 0,(uint8_t) 0, myPos.x, myPos.y);
+                        posHeader.SetFlowId(flowId); // Use the determined flowId
+                        p->AddHeader(posHeader);
+                        p->AddHeader(tHeader);
+
+                        // CACHE HIT
+                        NS_LOG_LOGIC("[CACHE HIT] Forwarding to " << dst << " through " << value.nextHop);
+                        Ptr<Ipv4Route> route = Create<Ipv4Route>();
+                        route->SetDestination(dst);
+                        if (header.GetSource() == Ipv4Address("102.102.102.102"))
+                        {
+                            route->SetSource(m_ipv4->GetAddress(1, 0).GetLocal());
+                        }
+                        else
+                        {
+                            route->SetSource(header.GetSource());
+                        }
+
+                        route->SetDestination(dst);
+                        route->SetGateway(value.nextHop);
+                        // Do NOT set OutputDevice, let IP stack decide from gateway
+                        
+                        ucb(route, p, header);
+                        return true;
+                    }
+
+                    m_flowTable.InvalidateEntriesFor(value.nextHop);
+                }
+            }
             nextHop = m_neighbors.BestNeighbor(Position, myPos, hdr.GetFlowId());
         }
 
@@ -1077,7 +1087,6 @@ namespace ns3 {
             
             // FIXME: Does not work for multiple interfaces
             route->SetOutputDevice(m_ipv4->GetNetDevice(1));
-            route->SetDestination(header.GetDestination());
             NS_ASSERT(route != 0);
             NS_LOG_DEBUG("Exist route to " << route->GetDestination() << " from interface " << route->GetOutputDevice());
             
@@ -1141,32 +1150,6 @@ namespace ns3 {
         FlowIdTag tag;
         tag.m_flowId = flowId;
         p->AddPacketTag(tag);
-        // FLOW CACHE LOGIC START
-        if (m_useFlowCache)
-        {
-
-            FlowKey key = {header.GetSource(), dst, flowId};
-            FlowValue value;
-            if (m_flowTable.Get(key, value))
-            {
-                // CACHE HIT
-                route->SetDestination(dst);
-                if (header.GetSource() == Ipv4Address("102.102.102.102"))
-                {
-                    route->SetSource(m_ipv4->GetAddress(1, 0).GetLocal());
-                }
-                else
-                {
-                    route->SetSource(header.GetSource());
-                }
-
-                route->SetGateway(value.nextHop);
-                route->SetOutputDevice(m_ipv4->GetNetDevice(1)); //FIXME
-                NS_LOG_LOGIC("[CACHE] RouteOutput to " << dst << " through " << value.nextHop);
-                return route;
-            }
-        }
-        // FLOW CACHE LOGIC END
 
         Vector dstPos = Vector(1, 0, 0);
 
@@ -1198,6 +1181,37 @@ namespace ns3 {
         }
         else
         {   
+            // FLOW CACHE LOGIC START
+            if (m_useFlowCache)
+            {
+
+                FlowKey key = {header.GetSource(), dst, flowId};
+                FlowValue value;
+                if (m_flowTable.Get(key, value))
+                {
+                    // CACHE HIT
+                    if (m_neighbors.isNeighbour(value.nextHop))
+                    {   
+                        route->SetDestination(dst);
+                        if (header.GetSource() == Ipv4Address("102.102.102.102"))
+                        {
+                            route->SetSource(m_ipv4->GetAddress(1, 0).GetLocal());
+                        }
+                        else
+                        {
+                            route->SetSource(header.GetSource());
+                        }
+
+                        std::cout << m_ipv4->GetAddress(1, 0).GetLocal() << " " << value.nextHop << '\n';
+
+                        route->SetGateway(value.nextHop);
+                        route->SetOutputDevice(m_ipv4->GetNetDevice(1)); //FIXME
+                        NS_LOG_LOGIC("[CACHE] RouteOutput to " << dst << " through " << value.nextHop);
+                        return route;
+                    }
+                }
+            }
+            // FLOW CACHE LOGIC END
             nextHop = m_neighbors.BestNeighbor(dstPos, myPos, flowId);
         }
 

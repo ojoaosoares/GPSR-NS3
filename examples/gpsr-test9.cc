@@ -21,56 +21,43 @@ class GpsrExample
 {
 public:
   GpsrExample ();
-  /// Configure script parameters, \return true on successful configuration
   bool Configure (int argc, char **argv);
-  /// Run simulation
   void Run ();
-  /// Report results
   void Report (std::ostream & os);
 
 private:
-  ///\name parameters
-  //\{
-  //Node parameters
-  /// Number of nodes
+  // Parameters
+
+  uint32_t seed;
   uint32_t size;
-  /// Width of the Node Grid
-  uint32_t gridWidth;
-  /// Node power at the start of the simulation
   double txPowerStart;
-  /// Node power at the end of the simulation
   double txPowerEnd;
-  
   uint32_t txPowerLevels;
-  /// Distance between nodes, meters
-  double step;
-  /// Simulation time, seconds
   double totalTime;
-  /// Write per-device PCAP traces if true
   bool pcap;
 
-  // WiFi parameters
-  /// RTS/CTS threshold
-  /// If set to 0, RTS/CTS is disabled. If set to a value greater than 0, RTS/CTS is enabled
-  /// and packets larger than this threshold will use RTS/CTS.
+  // WiFi
   uint32_t rtsCtsThreshold;
-  /// PHY mode
   std::string phyMode;
 
-  // Application parameters
+  // Applications
   uint16_t port;
   uint32_t packetSize;
   uint32_t maxPacketCount;
   double interPacketInterval;
-  //\}
 
-  ///\name network
-  //\{
+  // Mobility
+  double mapWidth;
+  double mapHeight;
+  double speedMin;
+  double speedMax;
+  double pauseMin;
+  double pauseMax;
+
+  // Network
   NodeContainer nodes;
   NetDeviceContainer devices;
   Ipv4InterfaceContainer interfaces;
-  //\}
-
 
   void CreateNodes ();
   void CreateDevices ();
@@ -82,6 +69,8 @@ private:
 
   std::set<Ipv4Address> sourceTargets;
   std::set<Ipv4Address> sinkTargets;
+
+  bool showPaths;
 };
 
 int main (int argc, char **argv)
@@ -89,47 +78,51 @@ int main (int argc, char **argv)
   GpsrExample test;
   if (! test.Configure(argc, argv))
     NS_FATAL_ERROR ("Configuration failed. Aborted.");
-
+    
 
   test.Run ();
   test.Report (std::cout);
   return 0;
 }
 
-//-----------------------------------------------------------------------------
 GpsrExample::GpsrExample () :
-  size (25),
-  gridWidth (5),
+  seed(12345),
+  size (50),
   txPowerStart(20.0),
   txPowerEnd(20.0),
   txPowerLevels (1),
-  step (50.0),
   totalTime (30.0),
-  pcap (true),
-  rtsCtsThreshold (0), // enable RTS/CTS by default
+  pcap (false),
+  rtsCtsThreshold (0),
   phyMode ("OfdmRate6Mbps"),
   port (9),
   packetSize (1024),
   maxPacketCount (10000000),
-  interPacketInterval (0.02)
+  interPacketInterval (0.004),
+  mapWidth (100),
+  mapHeight (100),
+  speedMin (1.0),
+  speedMax (10),
+  pauseMin (0.0),
+  pauseMax (5.0),
+  showPaths (false)
 {
 }
 
 bool
 GpsrExample::Configure (int argc, char **argv)
 {
-  SeedManager::SetSeed(12345);
+  
   CommandLine cmd;
 
   // General
+  cmd.AddValue ("seed", "Seed.", seed);
   cmd.AddValue ("pcap", "Write PCAP traces.", pcap);
   cmd.AddValue ("size", "Number of nodes.", size);
-  cmd.AddValue ("grid", "Grid Width.", gridWidth);
   cmd.AddValue ("time", "Simulation time, s.", totalTime);
   cmd.AddValue ("txPowerStart", "Transmission power of nodes at start (dBm)", txPowerStart);
   cmd.AddValue ("txPowerEnd", "Transmission power of nodes at end (dBm)", txPowerEnd);
   cmd.AddValue ("txPowerLevels", "Number of transmission power levels", txPowerLevels);
-  cmd.AddValue ("step", "Grid step, m", step);
 
   // WiFi
   cmd.AddValue ("rtsCts", "RTS/CTS threshold (0 = always, 2347 = disabled)", rtsCtsThreshold);
@@ -140,6 +133,16 @@ GpsrExample::Configure (int argc, char **argv)
   cmd.AddValue ("maxPackets", "Number of packets to send", maxPacketCount);
   cmd.AddValue ("interval", "Inter-packet interval (s)", interPacketInterval);
 
+  // Mobility
+  cmd.AddValue ("mapWidth", "Width of the simulation area (m)", mapWidth);
+  cmd.AddValue ("mapHeight", "Height of the simulation area (m)", mapHeight);
+  cmd.AddValue ("speedMin", "Minimum node speed (m/s)", speedMin);
+  cmd.AddValue ("speedMax", "Maximum node speed (m/s)", speedMax);
+  cmd.AddValue ("pauseMin", "Minimum pause time (s)", pauseMin);
+  cmd.AddValue ("pauseMax", "Maximum pause time (s)", pauseMax);
+
+  cmd.AddValue ("showPaths", "Show discovered paths", showPaths);
+
   cmd.Parse (argc, argv);
   return true;
 }
@@ -147,6 +150,7 @@ GpsrExample::Configure (int argc, char **argv)
 void
 GpsrExample::Run ()
 {
+  SeedManager::SetSeed(seed);
   CreateNodes ();
   CreateDevices ();
   InstallInternetStack ();
@@ -155,15 +159,16 @@ GpsrExample::Run ()
   GpsrHelper gpsr;
   gpsr.Install ();
 
-  // install FlowMonitor
   monitor = flowmon.InstallAll();
 
   std::cout << "Starting simulation for " << totalTime << " s ...\n";
 
   Simulator::Stop (Seconds (totalTime));
   Simulator::Run ();
-
   Simulator::Destroy ();
+  std::ostringstream oss;
+  oss << "flowmon-" << seed << ".xml";
+  monitor->SerializeToXmlFile(oss.str(), true, true);
 }
 
 void
@@ -192,7 +197,6 @@ GpsrExample::Report (std::ostream &os)
   for (auto const &flow : stats)
     {
       const FlowMonitor::FlowStats &st = flow.second;
-
       Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow(flow.first);
 
       if (sourceTargets.count(t.sourceAddress) > 0 && sinkTargets.count(t.destinationAddress) > 0)
@@ -233,25 +237,40 @@ GpsrExample::Report (std::ostream &os)
 void
 GpsrExample::CreateNodes ()
 {
-  std::cout << "Creating " << (unsigned)size << " nodes " << step << " m apart.\n";
+  std::cout << "Creating " << (unsigned)size << " nodes with Random Waypoint mobility.\n";
   nodes.Create (size);
-  // Name nodes
+
   for (uint32_t i = 0; i < size; ++i)
-     {
-       std::ostringstream os;
-       os << "node-" << i;
-       Names::Add (os.str (), nodes.Get (i));
-     }
-  // Create static grid
+    {
+      std::ostringstream os;
+      os << "node-" << i;
+      Names::Add (os.str (), nodes.Get (i));
+    }
+
   MobilityHelper mobility;
-  mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
-                                "MinX", DoubleValue (0.0),
-                                "MinY", DoubleValue (0.0),
-                                "DeltaX", DoubleValue (step),
-                                "DeltaY", DoubleValue (step),
-                                "GridWidth", UintegerValue (gridWidth),
-                                "LayoutType", StringValue ("RowFirst"));
-  mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+
+  Ptr<UniformRandomVariable> speed = CreateObject<UniformRandomVariable> ();
+  speed->SetAttribute ("Min", DoubleValue (speedMin));
+  speed->SetAttribute ("Max", DoubleValue (speedMax));
+
+  Ptr<UniformRandomVariable> pause = CreateObject<UniformRandomVariable> ();
+  pause->SetAttribute ("Min", DoubleValue (pauseMin));
+  pause->SetAttribute ("Max", DoubleValue (pauseMax));
+
+  Ptr<RandomRectanglePositionAllocator> positionAlloc = CreateObject<RandomRectanglePositionAllocator> ();
+  positionAlloc->SetX (CreateObjectWithAttributes<UniformRandomVariable> (
+                          "Min", DoubleValue (0.0),
+                          "Max", DoubleValue (mapWidth)));
+  positionAlloc->SetY (CreateObjectWithAttributes<UniformRandomVariable> (
+                          "Min", DoubleValue (0.0),
+                          "Max", DoubleValue (mapHeight)));
+
+  mobility.SetMobilityModel ("ns3::RandomWaypointMobilityModel",
+                             "Speed", PointerValue (speed),
+                             "Pause", PointerValue (pause),
+                             "PositionAllocator", PointerValue (positionAlloc));
+
+  mobility.SetPositionAllocator (positionAlloc);
   mobility.Install (nodes);
 }
 
@@ -286,7 +305,6 @@ GpsrExample::CreateDevices ()
 void
 GpsrExample::InstallInternetStack ()
 {
-
   Ipv4Address source_t("10.0.0.1");
   sourceTargets.insert(source_t);
 
@@ -295,10 +313,11 @@ GpsrExample::InstallInternetStack ()
   sinkTargets.insert(sink_t);
 
   GpsrHelper gpsr;
-  // you can configure SPY attributes here using gpsr.Set(name, value)
+
   InternetStackHelper stack;
   stack.SetRoutingHelper (gpsr);
   stack.Install (nodes);
+
   Ipv4AddressHelper address;
   address.SetBase ("10.0.0.0", "255.255.0.0");
   interfaces = address.Assign (devices);
@@ -308,7 +327,7 @@ void
 GpsrExample::InstallApplications ()
 {
   UdpEchoServerHelper server (port);
-  uint16_t server1Position = size - 1; // bottom right
+  uint16_t server1Position = size - 1;
   ApplicationContainer apps = server.Install (nodes.Get(server1Position));
   apps.Start (Seconds (1.0));
   apps.Stop (Seconds (totalTime - 0.1));
@@ -318,9 +337,8 @@ GpsrExample::InstallApplications ()
   client.SetAttribute ("Interval", TimeValue (Seconds (interPacketInterval)));
   client.SetAttribute ("PacketSize", UintegerValue (packetSize));
 
-  uint16_t clientPosition = 0; // top left
+  uint16_t clientPosition = 0;
   apps = client.Install (nodes.Get (clientPosition));
   apps.Start (Seconds (2.0));
   apps.Stop (Seconds (totalTime - 0.1));
 }
-
