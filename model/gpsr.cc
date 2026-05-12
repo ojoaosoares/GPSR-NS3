@@ -135,7 +135,6 @@ namespace ns3 {
         FlowParticipationResetTimer(Timer::CANCEL_ON_DESTROY),
         m_neighbors(Seconds(2), 0),
         PerimeterMode(false),
-        currFlowId(0),
         m_currentFlowParticipation(2),
         m_useFlowCache(true),
         m_flowTable(m_cacheTimeout)
@@ -1146,7 +1145,7 @@ namespace ns3 {
         Ptr<Ipv4Route> route = Create<Ipv4Route>();
         Ipv4Address dst = header.GetDestination();
 
-        uint8_t flowId = GetNextFlowId();
+        uint8_t flowId = GetNextFlowId(dst);
         FlowIdTag tag;
         tag.m_flowId = flowId;
         p->AddPacketTag(tag);
@@ -1263,11 +1262,23 @@ namespace ns3 {
     }
   
     uint8_t
-    RoutingProtocol::GetNextFlowId ()
+    RoutingProtocol::GetNextFlowId (Ipv4Address destination)
     {
-        uint8_t id = currFlowId;
-        currFlowId = (currFlowId + 1) % 2;
-        return id;
+        uint8_t currentId;
+        auto it = m_flowIdPerDestination.find(destination);
+        if (it == m_flowIdPerDestination.end())
+        {
+            // First time for this destination, initialize with 0
+            currentId = 0;
+            m_flowIdPerDestination[destination] = 1; // Store 1 for the next call
+        }
+        else
+        {
+            // Get the stored next flowId, then update it for the subsequent call
+            currentId = it->second;
+            m_flowIdPerDestination[destination] = (currentId + 1) % 2;
+        }
+        return currentId;
     }
 
     void

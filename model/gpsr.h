@@ -164,10 +164,9 @@ namespace ns3 {
 
         IpL4Protocol::DownTargetCallback m_downTarget;
 
-        __uint8_t currFlowId;
         uint8_t m_currentFlowParticipation;
 
-        __uint8_t GetNextFlowId();
+        __uint8_t GetNextFlowId(Ipv4Address destination);
 
         // Flow Cache members
         bool m_useFlowCache;
@@ -177,6 +176,8 @@ namespace ns3 {
         }
         Time m_cacheTimeout;
         FlowTable m_flowTable;
+
+        std::map<Ipv4Address, uint8_t> m_flowIdPerDestination;
     };
   }
 }
