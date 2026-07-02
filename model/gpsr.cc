@@ -367,12 +367,46 @@ namespace ns3 {
         // FIXME: Does not work for multiple interfaces
         route->SetOutputDevice(m_ipv4->GetNetDevice(1));
 
+        Vector Position;
+        Vector previousHop;
+        uint32_t updated;
+
         while(m_queue.Dequeue(dst, queueEntry))
         {
             Ptr<Packet> p = ConstCast<Packet>(queueEntry.GetPacket());
 
             UnicastForwardCallback ucb = queueEntry.GetUnicastForwardCallback();
             Ipv4Header header = queueEntry.GetIpv4Header();
+
+            TypeHeader tHeader(GPSRTYPE_POS);
+            p->RemoveHeader(tHeader);
+            if (!tHeader.IsValid())
+            {
+                NS_LOG_DEBUG("GPSR message " << p->GetUid() << " with unknown type received: " << tHeader.Get() << ". Drop");
+                return false;     // drop
+            }
+
+            if (tHeader.Get() == GPSRTYPE_POS)
+            {
+                PositionHeader hdr;
+                p->RemoveHeader(hdr);
+                Position.x = hdr.GetDstPosx();
+                Position.y = hdr.GetDstPosy();
+                updated = hdr.GetUpdated(); 
+            }
+
+            uint32_t myUpdated =(uint32_t) m_locationService->GetEntryUpdateTime(dst).GetSeconds();
+            if (myUpdated > updated) //check if node has an update to the position of destination
+            {
+                Position.x = m_locationService->GetPosition(dst).x;
+                Position.y = m_locationService->GetPosition(dst).y;
+                updated = myUpdated;
+            }
+            
+            // Here last positions is set to be the destination position because of the working of the right hand rule
+            PositionHeader posHeader(Position.x, Position.y,  updated, myPos.x, myPos.y,(uint8_t) 0, myPos.x, myPos.y); 
+            p->AddHeader(posHeader); //enters in recovery with last edge from Dst
+            p->AddHeader(tHeader);
 
             if (header.GetSource() == Ipv4Address("102.102.102.102"))
             {
